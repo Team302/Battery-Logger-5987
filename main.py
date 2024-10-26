@@ -3,13 +3,14 @@ import os
 import cv2
 import time
 import csv
-import winsound
 import threading
 from pyzbar.pyzbar import decode
 from datetime import datetime, timedelta
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
 import json
 import os
+import pygame
+pygame.mixer.init()
 
 # Define the path for persistent data storage
 PERSISTENT_FILE = 'battery_status.json'
@@ -164,7 +165,9 @@ def scan_barcode():
                 log_to_csv(barcode_data, battery_info, new_status)
                 update_battery_status(barcode_data, new_status)
 
-                winsound.PlaySound('beep.wav', winsound.SND_FILENAME | winsound.SND_ASYNC)
+                pygame.mixer.music.load("beep.wav")  # Replace 'beep.wav' with your actual sound file path
+                pygame.mixer.music.play()
+
 
         time.sleep(0.1)  # Small delay to reduce CPU usage
 
