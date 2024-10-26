@@ -2,20 +2,6 @@
 
 This project is a battery management system that uses barcode scanning, a video feed, and status tracking to manage battery usage in real time. The program is built with Python, Flask, and OpenCV, and it displays the live camera feed on a webpage that can be accessed locally or over a network.
 
-## Table of Contents:
-
-Features
-
-Prerequisites
-
-Setup and Usage on PC
-
-Setup and Usage on Raspberry Pi
-
-How to Use the Program
-
-Troubleshooting
-
 ## Features:
 
 * Real-time barcode scanning using a webcam.
