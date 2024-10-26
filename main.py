@@ -362,7 +362,7 @@ if __name__ == "__main__":
     cooldown_thread.start()
 
     try:
-        app.run(debug=True, use_reloader=False)
+        app.run(host='0.0.0.0', port=5000,debug=True, use_reloader=False)
     finally:
         # Save battery status to persistent file on exit
         save_battery_status()
