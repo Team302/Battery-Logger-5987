@@ -42,7 +42,7 @@ pip install Flask opencv-python-headless pygame pyzbar
 
 Start the application:
 ```bash
-python main.py
+python app.py
 ```
 
 Open your browser and go to http://127.0.0.1:5000 to access the web interface.
@@ -72,7 +72,7 @@ hostname -I
 Start the app on the Raspberry Pi:
 
 ```bash
-python main.py
+python app.py
 ```
 On your Raspberry Pi, access the app at 
 ```bash
