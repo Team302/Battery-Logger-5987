@@ -53,6 +53,10 @@
         <div class="text-end my-3">
             <a href="{{ url_for('settings') }}" class="btn btn-secondary">Settings</a>
         </div>
+        <!-- Add Battery Button -->
+        <div class="text-end mb-3">
+            <a href="{{ url_for('add_battery') }}" class="btn btn-primary">Add Battery</a>
+        </div>
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}

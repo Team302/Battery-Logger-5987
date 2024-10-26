@@ -330,7 +330,32 @@ def settings():
 
     return render_template('settings.html')
 
+@app.route('/add_battery', methods=['GET', 'POST'])
+def add_battery():
+    if request.method == 'POST':
+        team_number = request.form.get('team_number')
+        purchase_year = request.form.get('purchase_year')
+        purchase_month = request.form.get('purchase_month')
+        battery_number = request.form.get('battery_number')
 
+        # Generate the battery code
+        battery_code = f"{team_number}{purchase_year}{purchase_month}{battery_number}"
+
+        # Check if the battery code is already in use
+        if battery_code in battery_status:
+            flash("Battery code already exists.", "error")
+        else:
+            # Add new battery to battery_status
+            battery_status[battery_code] = {
+                'status': 'Charging',
+                'last_change': datetime.now(),
+                'display_time': timedelta(0),
+            }
+            flash("Battery added successfully.", "success")
+            # Redirect back to index page
+            return redirect(url_for('index'))
+
+    return render_template('add_battery.html')
 
 def save_battery_status():
     with open(PERSISTENT_FILE, 'w') as f:
@@ -381,7 +406,7 @@ if __name__ == "__main__":
     cooldown_thread.start()
 
     try:
-        app.run(host='0.0.0.0', port=5000,debug=True, use_reloader=False)
+        app.run(host='0.0.0.0', port=5000,debug=False, use_reloader=False)
     finally:
         # Save battery status to persistent file on exit
         save_battery_status()
