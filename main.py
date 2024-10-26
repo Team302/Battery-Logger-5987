@@ -6,7 +6,7 @@ import csv
 import threading
 from pyzbar.pyzbar import decode
 from datetime import datetime, timedelta
-from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response
 import json
 import os
 import pygame
@@ -25,6 +25,7 @@ COOLDOWN_DURATION_TIME = 10 #minutes
 # Battery status tracking dictionary
 battery_status = {}
 
+cap = cv2.VideoCapture(0)  # Open the default camera
 
 # Initialize the CSV file and write headers if it doesn’t exist
 def initialize_csv():
@@ -119,7 +120,6 @@ def can_change_status(barcode_data, new_status):
 # Barcode scanning function
 def scan_barcode():
     print("Starting barcode scanning...")
-    cap = cv2.VideoCapture(0)
     scanned_barcodes = {}
     cooldown_time = 5
 
@@ -297,7 +297,24 @@ def logs():
 
     # Pass logs data to the template
     return render_template('logs.html', logs=logs)
+@app.route('/video_feed')
+def video_feed():
+    return Response(generate_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
+def generate_frames():
+    while True:
+        success, frame = cap.read()  # Capture frame-by-frame
+        if not success:
+            break
+        else:
+            # Encode the frame in JPEG format
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
+
+            # Use yield to create a generator and stream the video
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 def save_battery_status():
     with open(PERSISTENT_FILE, 'w') as f:
         # Convert datetimes to strings for JSON compatibility
