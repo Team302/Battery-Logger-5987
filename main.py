@@ -333,7 +333,7 @@ def settings():
 @app.route('/add_battery', methods=['GET', 'POST'])
 def add_battery():
     if request.method == 'POST':
-        team_number = request.form.get('team_number')
+        team_number = request.form.get('team_number') 
         purchase_year = request.form.get('purchase_year')
         purchase_month = request.form.get('purchase_month')
         battery_number = request.form.get('battery_number')
