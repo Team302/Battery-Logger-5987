@@ -52,6 +52,23 @@ Open your browser and go to http://127.0.0.1:5000 to access the web interface.
 
 2. Make sure Python and pip are installed.
 
+**Create a Virtual Environment:**
+
+Install ```venv``` if Needed:
+```bash
+sudo apt install python3-venv
+```
+Create a Virtual Environment:
+
+```bash
+python3 -m venv battery_project_env
+```
+Activate the Virtual Environment:
+```bash
+source battery_project_env/bin/activate
+```
+**Install packages/libraries:**
+
 Install the system library libzbar0:
 ```bash
 sudo apt update
