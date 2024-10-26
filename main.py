@@ -21,7 +21,8 @@ app.secret_key = 'your_secret_key_here'  # Replace with a secure random key
 # Create a lock for thread safety
 battery_status_lock = threading.Lock()
 
-COOLDOWN_DURATION_TIME = 10 #minutes
+COOLDOWN_DURATION_TIME = 3600 #seconds
+
 # Battery status tracking dictionary
 battery_status = {}
 
@@ -79,22 +80,19 @@ def log_to_csv(barcode_data, battery_info, status):
 def update_battery_status(barcode_data, new_status):
     battery_status[barcode_data] = {
         'status': new_status,
+        'display_time' : timedelta(0),
         'last_change': datetime.now()
     }
     print(
         f"[update_battery_status] Battery {barcode_data} status updated to {new_status} at {battery_status[barcode_data]['last_change']}")
 
 
-# Check if battery can change status based on 10-minute wait rule
 def can_change_status(barcode_data, new_status):
     with battery_status_lock:
         if barcode_data in battery_status:
             last_status = battery_status[barcode_data]['status']
             last_change = battery_status[barcode_data]['last_change']
 
-            # Check 10-minute wait from last status change
-            if datetime.now() - last_change < timedelta(minutes=10):
-                return False
 
             # Logic to enforce allowed transitions
             valid_transitions = {
@@ -121,7 +119,7 @@ def can_change_status(barcode_data, new_status):
 def scan_barcode():
     print("Starting barcode scanning...")
     scanned_barcodes = {}
-    cooldown_time = 5
+    cooldown_time = 2
 
     while True:
         ret, frame = cap.read()
@@ -176,39 +174,39 @@ def scan_barcode():
 
 # Background thread to auto-update cooldown statuses
 def auto_update_cooldown_statuses():
-    COOLDOWN_DURATION = timedelta(minutes=COOLDOWN_DURATION_TIME)
-    print("Starting cooldown status updater...")
     while True:
-        try:
-            print(f"[{datetime.now()}] Auto-update thread is running.")
-            with battery_status_lock:
-                for barcode_data, data in list(battery_status.items()):
-                    status = data['status']
-                    last_change = data['last_change']
-                    elapsed_time = datetime.now() - last_change
-                    print(
-                        f"[auto_update_cooldown_statuses] Battery {barcode_data}: Status = {status}, Elapsed Time = {elapsed_time}, Cooldown Duration = {COOLDOWN_DURATION}")
+        with battery_status_lock:
+            for barcode_data, data in battery_status.items():
+                status = data['status']
+                last_change = data['last_change']
+                current_time = datetime.now()
 
-                    # Check for "Cooldown To Robot" with refined condition
-                    if status == "Cooldown To Robot" and elapsed_time >= COOLDOWN_DURATION:
-                        new_status = "Ready for ROBOT"
-                        battery_info = parse_battery_code(barcode_data)
-                        log_to_csv(barcode_data, battery_info, new_status)
-                        update_battery_status(barcode_data, new_status)
-                        print(
-                            f"[auto_update_cooldown_statuses] Battery {barcode_data} automatically updated to {new_status}")
+                if status in ["Cooldown To Robot", "Cooldown To Charge"]:
+                    # Calculate remaining cooldown time as a countdown timer
+                    elapsed_time = current_time - last_change
+                    display_time = max(timedelta(seconds=COOLDOWN_DURATION_TIME) - elapsed_time, timedelta(0))
+                    hours = int(display_time.total_seconds() // 3600)
+                    minutes = int((display_time.total_seconds() % 3600) // 60)
+                    seconds = int(display_time.total_seconds() % 60)
 
-                    # Check for "Cooldown To Charge"
-                    elif status == "Cooldown To Charge" and elapsed_time >= COOLDOWN_DURATION:
-                        new_status = "Ready for CHARGING"
-                        battery_info = parse_battery_code(barcode_data)
-                        log_to_csv(barcode_data, battery_info, new_status)
+                    battery_status[barcode_data]['display_time'] = f"{hours}:{minutes:02}:{seconds:02}"
+
+                    # If countdown reaches zero, change status to ready
+                    if display_time == timedelta(0):
+                        new_status = "Ready for ROBOT" if status == "Cooldown To Robot" else "Ready for CHARGING"
                         update_battery_status(barcode_data, new_status)
-                        print(
-                            f"[auto_update_cooldown_statuses] Battery {barcode_data} automatically updated to {new_status}")
-        except Exception as e:
-            print(f"Exception in auto_update_cooldown_statuses: {e}")
-        time.sleep(5)
+
+                else:
+                    # Show elapsed time as a timer going up
+                    elapsed_time = current_time - last_change
+                    hours = int(elapsed_time.total_seconds() // 3600)
+                    minutes = int((elapsed_time.total_seconds() % 3600) // 60)
+                    seconds = int(elapsed_time.total_seconds() % 60)
+
+                    battery_status[barcode_data]['display_time'] = f"{hours}:{minutes:02}:{seconds:02}"
+
+        time.sleep(1)  # Check every second for countdown accuracy
+
 
 
 # Flask route to display battery statuses
@@ -219,7 +217,7 @@ def index():
             {
                 'battery_code': code,
                 'status': data['status'],
-                'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S")
+                'display_time': data.get('display_time', '00:00:00')  # Display formatted time (either elapsed or remaining)
             } for code, data in battery_status.items()
         ]
     return render_template('index.html', batteries=battery_info)
@@ -278,6 +276,7 @@ def battery_status_api():
             {
                 'battery_code': code,
                 'status': data['status'],
+                'display_time' : str(data['display_time']),
                 'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S")
             } for code, data in battery_status.items()
         ]
@@ -303,18 +302,36 @@ def video_feed():
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 def generate_frames():
+    # Apply the resolution setting to the camera
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
     while True:
-        success, frame = cap.read()  # Capture frame-by-frame
+        success, frame = cap.read()
         if not success:
             break
         else:
-            # Encode the frame in JPEG format
             ret, buffer = cv2.imencode('.jpg', frame)
             frame = buffer.tobytes()
-
-            # Use yield to create a generator and stream the video
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+@app.route('/settings', methods=['GET', 'POST'])
+def settings():
+    global COOLDOWN_DURATION_TIME
+    if request.method == 'POST':
+        # Retrieve and apply settings
+        try:
+            COOLDOWN_DURATION_TIME = int(request.form.get('cooldown_time', COOLDOWN_DURATION_TIME))
+            flash("Settings have been updated.", "success")
+        except:
+            flash("Settings have NOT been updated.", "warning")
+
+
+    return render_template('settings.html')
+
+
+
 def save_battery_status():
     with open(PERSISTENT_FILE, 'w') as f:
         # Convert datetimes to strings for JSON compatibility
@@ -336,8 +353,8 @@ def load_initial_battery_status():
             print("DATA: ", data_loaded)
             for code, data in data_loaded.items():
                 battery_status[code] = {
-                    'status': data['st'
-                                   'atus'],
+                    'status': data['status'],
+                    'display_time':timedelta(0),
                     'last_change': datetime.strptime(data['last_change'], "%Y-%m-%d %H:%M:%S")
                 }
         print("Battery status loaded from file.")
@@ -349,6 +366,8 @@ def load_initial_battery_status():
 if __name__ == "__main__":
     # Load initial battery status from persistent file
     load_initial_battery_status()
+
+
 
     # Initialize CSV if necessary
     initialize_csv()

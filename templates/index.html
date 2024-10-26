@@ -48,6 +48,11 @@
         <!-- Video Stream -->
         <h3>Live Video Feed</h3>
         <img src="{{ url_for('video_feed') }}" width="320" height="240" class="border border-primary">
+
+        <!-- Settings Button -->
+        <div class="text-end my-3">
+            <a href="{{ url_for('settings') }}" class="btn btn-secondary">Settings</a>
+        </div>
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
@@ -88,11 +93,18 @@
                     <tr>
                         <th>Battery Code</th>
                         <th>Status</th>
+                        <th>Elapsed/Remaining Time</th>
                         <th>Last Change</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Table rows will be dynamically populated -->
+                    {% for battery in batteries %}
+                        <tr>
+                            <td>{{ battery.battery_code }}</td>
+                            <td>{{ battery.status }}</td>
+                            <td>{{ battery.display_time  }}</td>
+                        </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -144,6 +156,7 @@
                         row.innerHTML = `
                             <td>${battery.battery_code}</td>
                             <td>${statusIcon}</td>
+                            <td>${battery.display_time}</td>
                             <td>${battery.last_change}</td>
                         `;
                         tableBody.appendChild(row);
@@ -152,8 +165,8 @@
                 .catch(error => console.error('Error fetching battery status:', error));
         }
 
-        // Fetch battery status every 5 seconds
-        setInterval(fetchBatteryStatus, 5000);
+        // Fetch battery status every 1 second
+        setInterval(fetchBatteryStatus, 1000);
 
         // Fetch battery status immediately when the page loads
         fetchBatteryStatus();
