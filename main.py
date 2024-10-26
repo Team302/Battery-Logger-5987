@@ -12,7 +12,9 @@ import os
 import pygame
 import cv2 as cv
 pygame.mixer.init()
-
+cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 # Define the path for persistent data storage
 PERSISTENT_FILE = 'battery_status.json'
 
@@ -27,24 +29,7 @@ COOLDOWN_DURATION_TIME = 600 #seconds
 # Battery status tracking dictionary
 battery_status = {}
 
-cap = cv.VideoCapture(0)  # Open the default camera
-if not cap.isOpened():
-    print("Cannot open camera")
-    exit()
-while True:
-    # Capture frame-by-frame
-    ret, frame = cap.read()
 
-    # if frame is read correctly ret is True
-    if not ret:
-        print("Can't receive frame (stream end?). Exiting ...")
-        break
-    # Our operations on the frame come here
-    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-    # Display the resulting frame
-    cv.imshow('frame', frame)
-    if cv.waitKey(1) == ord('q'):
-        break
 # Initialize the CSV file and write headers if it doesn’t exist
 def initialize_csv():
     with open('battery_log.csv', mode='a', newline='') as file:
@@ -319,20 +304,22 @@ def video_feed():
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 def generate_frames():
-    # Apply the resolution setting to the camera
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
 
     while True:
         success, frame = cap.read()
         if not success:
             break
         else:
+            # Encode the frame as JPEG
             ret, buffer = cv2.imencode('.jpg', frame)
             frame = buffer.tobytes()
+
+            # Yield the frame as part of the response
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
+    cap.release()
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
     global COOLDOWN_DURATION_TIME
