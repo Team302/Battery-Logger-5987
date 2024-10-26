@@ -93,7 +93,7 @@ def can_change_status(barcode_data, new_status):
             last_change = battery_status[barcode_data]['last_change']
 
             # Check 10-minute wait from last status change
-            if datetime.now() - last_change < timedelta(seconds=10):
+            if datetime.now() - last_change < timedelta(minutes=10):
                 return False
 
             # Logic to enforce allowed transitions
@@ -176,7 +176,7 @@ def scan_barcode():
 
 # Background thread to auto-update cooldown statuses
 def auto_update_cooldown_statuses():
-    COOLDOWN_DURATION = timedelta(seconds=COOLDOWN_DURATION_TIME)
+    COOLDOWN_DURATION = timedelta(minutes=COOLDOWN_DURATION_TIME)
     print("Starting cooldown status updater...")
     while True:
         try:
