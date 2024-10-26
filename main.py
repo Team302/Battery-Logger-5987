@@ -10,6 +10,7 @@ from flask import Flask, render_template, redirect, url_for, request, flash, jso
 import json
 import os
 import pygame
+import cv2 as cv
 pygame.mixer.init()
 
 # Define the path for persistent data storage
@@ -26,8 +27,24 @@ COOLDOWN_DURATION_TIME = 600 #seconds
 # Battery status tracking dictionary
 battery_status = {}
 
-cap = cv2.VideoCapture(0)  # Open the default camera
+cap = cv.VideoCapture(0)  # Open the default camera
+if not cap.isOpened():
+    print("Cannot open camera")
+    exit()
+while True:
+    # Capture frame-by-frame
+    ret, frame = cap.read()
 
+    # if frame is read correctly ret is True
+    if not ret:
+        print("Can't receive frame (stream end?). Exiting ...")
+        break
+    # Our operations on the frame come here
+    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    # Display the resulting frame
+    cv.imshow('frame', frame)
+    if cv.waitKey(1) == ord('q'):
+        break
 # Initialize the CSV file and write headers if it doesn’t exist
 def initialize_csv():
     with open('battery_log.csv', mode='a', newline='') as file:
