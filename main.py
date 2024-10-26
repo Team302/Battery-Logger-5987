@@ -16,12 +16,12 @@ pygame.mixer.init()
 PERSISTENT_FILE = 'battery_status.json'
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_here'  # Replace with a secure random key
+app.secret_key = 'galaxia5987'  # Replace with a secure random key
 
 # Create a lock for thread safety
 battery_status_lock = threading.Lock()
 
-COOLDOWN_DURATION_TIME = 3600 #seconds
+COOLDOWN_DURATION_TIME = 600 #seconds
 
 # Battery status tracking dictionary
 battery_status = {}
