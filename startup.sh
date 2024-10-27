@@ -1,10 +1,11 @@
 #!/bin/bash
 
+# Activate the virtual environment
+source battery_project_env/bin/activate
+
 # Navigate to the project directory
 cd /home/david/Documents/Battery-Logger-5987
 
-# Activate the virtual environment
-source battery_project_env/bin/activate
 
 echo "Starting Battery Manager..."
 
