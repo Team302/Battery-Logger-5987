@@ -45,9 +45,13 @@
 
     <div class="container my-5">
         <h1 class="text-center mb-4">Battery Manager</h1>
-        <!-- Video Stream -->
-        <h3>Live Video Feed</h3>
-        <img src="{{ url_for('video_feed') }}" width="320" height="240" class="border border-primary">
+        <!-- Centered Video Feed -->
+        <div class="row justify-content-center mt-4">
+            <div class="col-md-8 text-center">
+                <h3>Live Video Feed</h3>
+                <img src="{{ url_for('video_feed') }}" alt="Video Feed" class="img-fluid" style="border: 1px solid #ddd; border-radius: 8px;">
+            </div>
+        </div>
 
         <!-- Settings Button -->
         <div class="text-end my-3">
@@ -72,6 +76,9 @@
             <a href="{{ url_for('logs') }}" class="btn btn-primary">View Logs</a>
         </div>
         {% endwith %}
+        <form action="{{ url_for('stop_system') }}" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-danger">Stop</button>
+        </form>
 
         <!-- Manual Entry Form -->
         <div class="card mb-4">

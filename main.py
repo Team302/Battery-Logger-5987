@@ -11,12 +11,14 @@ import json
 import os
 import pygame
 import cv2 as cv
+
 pygame.mixer.init()
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 # Define the path for persistent data storage
 PERSISTENT_FILE = 'battery_status.json'
+stop_flag = threading.Event()  # Create an Event object to signal threads to stop
 
 app = Flask(__name__)
 app.secret_key = 'galaxia5987'  # Replace with a secure random key
@@ -24,7 +26,7 @@ app.secret_key = 'galaxia5987'  # Replace with a secure random key
 # Create a lock for thread safety
 battery_status_lock = threading.Lock()
 
-COOLDOWN_DURATION_TIME = 600 #seconds
+COOLDOWN_DURATION_TIME = 600  # seconds
 
 # Battery status tracking dictionary
 battery_status = {}
@@ -82,7 +84,7 @@ def log_to_csv(barcode_data, battery_info, status):
 def update_battery_status(barcode_data, new_status):
     battery_status[barcode_data] = {
         'status': new_status,
-        'display_time' : timedelta(0),
+        'display_time': timedelta(0),
         'last_change': datetime.now()
     }
     print(
@@ -94,7 +96,6 @@ def can_change_status(barcode_data, new_status):
         if barcode_data in battery_status:
             last_status = battery_status[barcode_data]['status']
             last_change = battery_status[barcode_data]['last_change']
-
 
             # Logic to enforce allowed transitions
             valid_transitions = {
@@ -113,8 +114,6 @@ def can_change_status(barcode_data, new_status):
             if new_status == "Charging":
                 return True
     return False
-
-
 
 
 # Barcode scanning function
@@ -168,7 +167,6 @@ def scan_barcode():
                 pygame.mixer.music.load("beep.wav")  # Replace 'beep.wav' with your actual sound file path
                 pygame.mixer.music.play()
 
-
         time.sleep(0.1)  # Small delay to reduce CPU usage
 
     cap.release()
@@ -210,7 +208,6 @@ def auto_update_cooldown_statuses():
         time.sleep(1)  # Check every second for countdown accuracy
 
 
-
 # Flask route to display battery statuses
 @app.route('/')
 def index():
@@ -219,7 +216,8 @@ def index():
             {
                 'battery_code': code,
                 'status': data['status'],
-                'display_time': data.get('display_time', '00:00:00')  # Display formatted time (either elapsed or remaining)
+                'display_time': data.get('display_time', '00:00:00')
+                # Display formatted time (either elapsed or remaining)
             } for code, data in battery_status.items()
         ]
     return render_template('index.html', batteries=battery_info)
@@ -278,11 +276,12 @@ def battery_status_api():
             {
                 'battery_code': code,
                 'status': data['status'],
-                'display_time' : str(data['display_time']),
+                'display_time': str(data['display_time']),
                 'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S")
             } for code, data in battery_status.items()
         ]
     return jsonify(battery_info)
+
 
 @app.route('/logs')
 def logs():
@@ -298,14 +297,15 @@ def logs():
 
     # Pass logs data to the template
     return render_template('logs.html', logs=logs)
+
+
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
+
 def generate_frames():
-
-
     while True:
         success, frame = cap.read()
         if not success:
@@ -320,6 +320,8 @@ def generate_frames():
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     cap.release()
+
+
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
     global COOLDOWN_DURATION_TIME
@@ -331,13 +333,13 @@ def settings():
         except:
             flash("Settings have NOT been updated.", "warning")
 
-
     return render_template('settings.html')
+
 
 @app.route('/add_battery', methods=['GET', 'POST'])
 def add_battery():
     if request.method == 'POST':
-        team_number = request.form.get('team_number') 
+        team_number = request.form.get('team_number')
         purchase_year = request.form.get('purchase_year')
         purchase_month = request.form.get('purchase_month')
         battery_number = request.form.get('battery_number')
@@ -361,6 +363,21 @@ def add_battery():
 
     return render_template('add_battery.html')
 
+
+@app.route('/stop', methods=['POST'])
+def stop_system():
+    stop_flag.set()  # Set the stop flag to terminate background threads
+    flash("System stopped successfully. Shutting down...", "success")
+
+    # Give a moment for flash message to register
+    time.sleep(1)
+
+    # Exit the program
+    save_battery_status()
+    os.abort()  # Forcefully terminate the Flask server and Python process
+    # Alternatively, use sys.exit() but note that os._exit(0) ensures immediate termination
+
+
 def save_battery_status():
     with open(PERSISTENT_FILE, 'w') as f:
         # Convert datetimes to strings for JSON compatibility
@@ -383,7 +400,7 @@ def load_initial_battery_status():
             for code, data in data_loaded.items():
                 battery_status[code] = {
                     'status': data['status'],
-                    'display_time':timedelta(0),
+                    'display_time': timedelta(0),
                     'last_change': datetime.strptime(data['last_change'], "%Y-%m-%d %H:%M:%S")
                 }
         print("Battery status loaded from file.")
@@ -395,8 +412,6 @@ def load_initial_battery_status():
 if __name__ == "__main__":
     # Load initial battery status from persistent file
     load_initial_battery_status()
-
-
 
     # Initialize CSV if necessary
     initialize_csv()
@@ -410,7 +425,7 @@ if __name__ == "__main__":
     cooldown_thread.start()
 
     try:
-        app.run(host='0.0.0.0', port=5000,debug=False, use_reloader=False)
+        app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
     finally:
         # Save battery status to persistent file on exit
         save_battery_status()
