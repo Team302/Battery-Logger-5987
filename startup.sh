@@ -15,6 +15,7 @@ echo "Battery Manager started at $(date)" >> /home/david/Documents/Battery-Logge
 # Start the main Python script
 python3 main.py &
 
+sleep(7)
 # Check network connectivity to localhost
 echo "Checking network connectivity..."
 ping -c 4 127.0.0.1
