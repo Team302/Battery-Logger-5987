@@ -78,6 +78,19 @@
         </div>
     </div>
 
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} mt-2" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
     <!-- Settings Button and Add Battery Button -->
     <div class="text-end my-3">
         <a href="{{ url_for('settings') }}" class="btn btn-secondary">Settings</a>

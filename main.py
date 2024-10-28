@@ -327,7 +327,15 @@ def settings():
             TEAM_NUMBER = int(request.form.get('team_number', TEAM_NUMBER))
             flash("Settings have been updated.", "success")
         except:
-            flash("Settings have NOT been updated.", "warning")
+            try:
+                TEAM_NUMBER = int(request.form.get('team_number', TEAM_NUMBER))
+                flash("Settings have been updated (ONLY TEAM NUMBER)", "success")
+            except:
+                try:
+                    COOLDOWN_DURATION_TIME = int(request.form.get('cooldown_time', COOLDOWN_DURATION_TIME))
+                    flash("Settings have been updated (ONLY COOLDOWN)", "success")
+                except:
+                    flash("Settings have NOT been updated.", "warning")
 
     return render_template('settings.html')
 
@@ -340,7 +348,7 @@ def add_battery():
         battery_number = request.form.get('battery_number')
 
         # Generate the battery code
-        battery_code = TEAM_NUMBER, f"{purchase_year}{battery_number}"
+        battery_code = str(TEAM_NUMBER) + f"{purchase_year}{battery_number}"
 
         # Check if the battery code is already in use
         if battery_code in battery_status:
