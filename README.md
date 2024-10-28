@@ -45,7 +45,8 @@ Start the application:
 python main.py
 ```
 
-Open your browser and go to http://127.0.0.1:5000 to access the web interface.
+Open your browser and go to http://127.0.0.1:5000 to access the web interface
+In addition, you can access the logger from any device connected to the same network; go to: IPADDRESS:5000 (for example 192.168.1.10:5000)
 
 ## Setup and Usage on Raspberry Pi
 1. Install Required Packages
