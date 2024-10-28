@@ -6,21 +6,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Battery Manager</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Bootstrap CSS -->
-    <!-- Using Bootstrap 5 CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Optional: Include Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
 
     <!-- Custom CSS -->
     <style>
+        .manual-entry-form {
+            margin-bottom: 10px;
+        }
+        .battery-table {
+            margin-top: 10px;
+        }
+        #video-feed {
+        position: absolute; /* Make it absolute so it can move freely */
+        top: 20px;          /* Initial top position */
+        left: 20px;         /* Initial left position */
+        width: 300px;       /* Adjust width as needed */
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background-color: #fff;
+        padding: 10px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+        cursor: move;       /* Change cursor to indicate it's draggable */
+        z-index: 1000;      /* Ensure it stays on top of other elements */
+        }
         body {
-            background-color: #f8f9fa; /* Light gray background */
+            background-color: #f8f9fa;
         }
         .card-header {
-            background-color: #007bff; /* Bootstrap primary color */
+            background-color: #007bff;
             color: white;
         }
         h1 {
@@ -41,50 +54,17 @@
 </head>
 <body>
 
+<div class="container my-5">
+    <h1 class="text-center mb-4">Battery Manager</h1>
 
-
-    <div class="container my-5">
-        <h1 class="text-center mb-4">Battery Manager</h1>
-        <!-- Centered Video Feed -->
-        <div class="row justify-content-center mt-4">
-            <div class="col-md-8 text-center">
-                <h3>Live Video Feed</h3>
-                <img src="{{ url_for('video_feed') }}" alt="Video Feed" class="img-fluid" style="border: 1px solid #ddd; border-radius: 8px;">
-            </div>
-        </div>
-
-        <!-- Settings Button -->
-        <div class="text-end my-3">
-            <a href="{{ url_for('settings') }}" class="btn btn-secondary">Settings</a>
-        </div>
-        <!-- Add Battery Button -->
-        <div class="text-end mb-3">
-            <a href="{{ url_for('add_battery') }}" class="btn btn-primary">Add Battery</a>
-        </div>
-        <!-- Flash Messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <div class="container">
-              {% for category, message in messages %}
-                <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }}" role="alert">
-                  {{ message }}
-                </div>
-              {% endfor %}
-            </div>
-          {% endif %}
-        <div class="text-end my-3">
-            <a href="{{ url_for('logs') }}" class="btn btn-primary">View Logs</a>
-        </div>
-        {% endwith %}
-        <form action="{{ url_for('stop_system') }}" method="post" style="display:inline;">
-            <button type="submit" class="btn btn-danger">Stop</button>
-        </form>
+    <!-- Flex Container for Video Feed and Manual Entry Form -->
+    <div class="d-flex flex-column align-items-center">
+        <!-- Video Feed -->
+        <img id="video-feed" src="{{ url_for('video_feed') }}" alt="Video Feed" class="img-fluid">
 
         <!-- Manual Entry Form -->
-        <div class="card mb-4">
-            <div class="card-header">
-                Manual Battery Entry
-            </div>
+        <div class="card mt-2 w-75 manual-entry-form">
+            <div class="card-header">Manual Battery Entry</div>
             <div class="card-body">
                 <form action="/manual_entry" method="post" class="row g-3">
                     <div class="col-md-8">
@@ -96,94 +76,125 @@
                 </form>
             </div>
         </div>
-
-        <!-- Battery Status Table -->
-        <div class="table-responsive">
-            <table class="table table-striped table-hover" id="battery-table">
-                <thead>
-                    <tr>
-                        <th>Battery Code</th>
-                        <th>Status</th>
-                        <th>Elapsed/Remaining Time</th>
-                        <th>Last Change</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for battery in batteries %}
-                        <tr>
-                            <td>{{ battery.battery_code }}</td>
-                            <td>{{ battery.status }}</td>
-                            <td>{{ battery.display_time  }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
     </div>
 
-    <!-- JavaScript to fetch and update battery status -->
-    <script>
-        function fetchBatteryStatus() {
-            fetch('/api/battery_status')
-                .then(response => response.json())
-                .then(data => {
-                    const tableBody = document.querySelector('#battery-table tbody');
-                    // Remove existing rows
-                    tableBody.innerHTML = '';
-                    // Populate table with new data
-                    data.forEach(battery => {
-                        const row = document.createElement('tr');
-                        let statusIcon = '';
-                        let rowClass = '';
-                        switch (battery.status) {
-                            case 'Ready for ROBOT':
-                                statusIcon = '<span class="status-icon"><i class="bi bi-battery-full text-success"></i>Ready for ROBOT</span>';
-                                rowClass = 'table-success';
-                                break;
-                            case 'Ready for CHARGING':
-                                statusIcon = '<span class="status-icon"><i class="bi bi-plug-fill text-primary"></i>Ready for CHARGING</span>';
-                                rowClass = 'table-primary';
-                                break;
-                            case 'Charging':
-                                statusIcon = '<span class="status-icon"><i class="bi bi-battery-charging text-warning"></i>Charging</span>';
-                                rowClass = 'table-warning';
-                                break;
-                            case 'In Use':
-                                statusIcon = '<span class="status-icon"><i class="bi bi-battery-half text-info"></i>In Use</span>';
-                                rowClass = 'table-info';
-                                break;
-                            case 'Cooldown To Robot':
-                                statusIcon = '<span class="status-icon"><i class="bi bi-thermometer-half text-secondary"></i>Cooldown To Robot</span>';
-                                rowClass = 'table-secondary';
-                                break;
-                            case 'Cooldown To Charge':
-                                statusIcon = '<span class="status-icon"><i class="bi bi-thermometer-half text-secondary"></i>Cooldown To Charge</span>';
-                                rowClass = 'table-secondary';
-                                break;
-                            default:
-                                statusIcon = battery.status;
-                        }
-                        row.classList.add(rowClass);
-                        row.innerHTML = `
-                            <td>${battery.battery_code}</td>
-                            <td>${statusIcon}</td>
-                            <td>${battery.display_time}</td>
-                            <td>${battery.last_change}</td>
-                        `;
-                        tableBody.appendChild(row);
-                    });
-                })
-                .catch(error => console.error('Error fetching battery status:', error));
+    <!-- Settings Button and Add Battery Button -->
+    <div class="text-end my-3">
+        <a href="{{ url_for('settings') }}" class="btn btn-secondary">Settings</a>
+        <a href="{{ url_for('add_battery') }}" class="btn btn-primary">Add Battery</a>
+        <a href="{{ url_for('logs') }}" class="btn btn-primary">View Logs</a>
+        <form action="{{ url_for('stop_system') }}" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-danger">Stop</button>
+        </form>
+    </div>
+
+    <!-- Battery Status Table -->
+    <div class="table-responsive battery-table">
+        <table class="table table-striped table-hover" id="battery-table">
+            <thead>
+                <tr>
+                    <th>Battery Code</th>
+                    <th>Status</th>
+                    <th>Elapsed/Remaining Time</th>
+                    <th>Last Change</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for battery in batteries %}
+                    <tr>
+                        <td>{{ battery.battery_code }}</td>
+                        <td>{{ battery.status }}</td>
+                        <td>{{ battery.display_time }}</td>
+                        <td>{{ battery.last_change }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const videoFeed = document.getElementById("video-feed");
+
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+
+    videoFeed.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        // Get current position
+        initialX = videoFeed.offsetLeft;
+        initialY = videoFeed.offsetTop;
+        e.preventDefault();
+    });
+
+    document.addEventListener("mousemove", (e) => {
+        if (isDragging) {
+            // Calculate new position
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            videoFeed.style.left = `${initialX + dx}px`;
+            videoFeed.style.top = `${initialY + dy}px`;
         }
+    });
 
-        // Fetch battery status every 1 second
-        setInterval(fetchBatteryStatus, 1000);
+    document.addEventListener("mouseup", () => {
+        isDragging = false;
+    });
+    function fetchBatteryStatus() {
+        fetch('/api/battery_status')
+            .then(response => response.json())
+            .then(data => {
+                const tableBody = document.querySelector('#battery-table tbody');
+                tableBody.innerHTML = '';
+                data.forEach(battery => {
+                    const row = document.createElement('tr');
+                    let statusIcon = '';
+                    let rowClass = '';
+                    switch (battery.status) {
+                        case 'Ready for ROBOT':
+                            statusIcon = '<span class="status-icon"><i class="bi bi-battery-full text-success"></i>Ready for ROBOT</span>';
+                            rowClass = 'table-success';
+                            break;
+                        case 'Ready for CHARGING':
+                            statusIcon = '<span class="status-icon"><i class="bi bi-plug-fill text-primary"></i>Ready for CHARGING</span>';
+                            rowClass = 'table-primary';
+                            break;
+                        case 'Charging':
+                            statusIcon = '<span class="status-icon"><i class="bi bi-battery-charging text-warning"></i>Charging</span>';
+                            rowClass = 'table-warning';
+                            break;
+                        case 'In Use':
+                            statusIcon = '<span class="status-icon"><i class="bi bi-battery-half text-info"></i>In Use</span>';
+                            rowClass = 'table-info';
+                            break;
+                        case 'Cooldown To Robot':
+                        case 'Cooldown To Charge':
+                            statusIcon = '<span class="status-icon"><i class="bi bi-thermometer-half text-secondary"></i>' + battery.status + '</span>';
+                            rowClass = 'table-secondary';
+                            break;
+                        default:
+                            statusIcon = battery.status;
+                    }
+                    row.classList.add(rowClass);
+                    row.innerHTML = `
+                        <td>${battery.battery_code}</td>
+                        <td>${statusIcon}</td>
+                        <td>${battery.display_time}</td>
+                        <td>${battery.last_change}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            })
+            .catch(error => console.error('Error fetching battery status:', error));
+    }
 
-        // Fetch battery status immediately when the page loads
-        fetchBatteryStatus();
-    </script>
+    // Fetch battery status every 1 second
+    setInterval(fetchBatteryStatus, 1000);
+    fetchBatteryStatus();
+</script>
 
-    <!-- Bootstrap JS (Optional, for components like modals or dropdowns) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -25,21 +25,14 @@
 
         <!-- Add Battery Form -->
         <form method="POST" action="{{ url_for('add_battery') }}">
-            <div class="mb-3">
-                <label for="team_number" class="form-label">Team Number</label>
-                <input type="text" class="form-control" id="team_number" name="team_number" required placeholder="e.g., 5987 or 0254 (has to be 4 digit)">
-            </div>
+
             <div class="mb-3">
                 <label for="purchase_year" class="form-label">Purchase Year</label>
                 <input type="text" class="form-control" id="purchase_year" name="purchase_year" required placeholder="e.g., 2024">
             </div>
             <div class="mb-3">
-                <label for="purchase_month" class="form-label">Purchase Month</label>
-                <input type="text" class="form-control" id="purchase_month" name="purchase_month" required placeholder="e.g., 01">
-            </div>
-            <div class="mb-3">
                 <label for="battery_number" class="form-label">Battery Number</label>
-                <input type="text" class="form-control" id="battery_number" name="battery_number" required placeholder="e.g., 01">
+                <input type="text" class="form-control" id="battery_number" name="battery_number" required placeholder="e.g., 0001">
             </div>
             <button type="submit" class="btn btn-primary">Add Battery</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>

@@ -1,5 +1,3 @@
-import os
-
 import cv2
 import time
 import csv
@@ -10,19 +8,20 @@ from flask import Flask, render_template, redirect, url_for, request, flash, jso
 import json
 import os
 import pygame
-import cv2 as cv
 
 pygame.mixer.init()
 cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 # Define the path for persistent data storage
 PERSISTENT_FILE = 'battery_status.json'
 stop_flag = threading.Event()  # Create an Event object to signal threads to stop
 
 app = Flask(__name__)
-app.secret_key = 'galaxia5987'  # Replace with a secure random key
+app.secret_key = '1234567890'
 
+# Define team number default
+TEAM_NUMBER = "5987"
 # Create a lock for thread safety
 battery_status_lock = threading.Lock()
 
@@ -42,7 +41,6 @@ def initialize_csv():
                 "Battery Code",
                 "Team Number",
                 "Purchase Year",
-                "Purchase Month",
                 "Battery Number",
                 "Status"
             ])
@@ -52,13 +50,11 @@ def initialize_csv():
 def parse_battery_code(barcode_data):
     team_number = barcode_data[:4]
     purchase_year = barcode_data[4:8]
-    purchase_month = barcode_data[8:10]
-    battery_number = barcode_data[10:12]
+    battery_number = barcode_data[8:12]
 
     return {
         "team_number": team_number,
         "purchase_year": purchase_year,
-        "purchase_month": purchase_month,
         "battery_number": battery_number
     }
 
@@ -74,7 +70,6 @@ def log_to_csv(barcode_data, battery_info, status):
             barcode_data,
             battery_info['team_number'],
             battery_info['purchase_year'],
-            battery_info['purchase_month'],
             battery_info['battery_number'],
             status
         ])
@@ -133,9 +128,8 @@ def scan_barcode():
         for barcode in barcodes:
             barcode_data = barcode.data.decode('utf-8')[:-1]  # Discard last digit
             battery_info = parse_battery_code(barcode_data)
-
-            if battery_info['team_number'] != "5987":
-                continue
+            if not (barcode_data in battery_status.keys()):
+                break
 
             if barcode_data not in scanned_barcodes or time.time() - scanned_barcodes[barcode_data] > cooldown_time:
                 scanned_barcodes[barcode_data] = time.time()
@@ -237,8 +231,8 @@ def manual_entry():
 
     battery_info = parse_battery_code(battery_code)
 
-    if battery_info['team_number'] != "5987":
-        flash('Invalid team number in battery code.', 'error')
+    if battery_code in battery_status.items():
+        flash('Invalid team number in battery code. Please check Settings', 'error')
         return redirect(url_for('index'))
 
     with battery_status_lock:
@@ -325,10 +319,12 @@ def generate_frames():
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
     global COOLDOWN_DURATION_TIME
+    global TEAM_NUMBER
     if request.method == 'POST':
         # Retrieve and apply settings
         try:
             COOLDOWN_DURATION_TIME = int(request.form.get('cooldown_time', COOLDOWN_DURATION_TIME))
+            TEAM_NUMBER = int(request.form.get('team_number', TEAM_NUMBER))
             flash("Settings have been updated.", "success")
         except:
             flash("Settings have NOT been updated.", "warning")
@@ -338,14 +334,13 @@ def settings():
 
 @app.route('/add_battery', methods=['GET', 'POST'])
 def add_battery():
+    global TEAM_NUMBER
     if request.method == 'POST':
-        team_number = request.form.get('team_number')
         purchase_year = request.form.get('purchase_year')
-        purchase_month = request.form.get('purchase_month')
         battery_number = request.form.get('battery_number')
 
         # Generate the battery code
-        battery_code = f"{team_number}{purchase_year}{purchase_month}{battery_number}"
+        battery_code = TEAM_NUMBER, f"{purchase_year}{battery_number}"
 
         # Check if the battery code is already in use
         if battery_code in battery_status:
