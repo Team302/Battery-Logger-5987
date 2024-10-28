@@ -48,7 +48,7 @@ python main.py
 Open your browser and go to http://127.0.0.1:5000 to access the web interface
 In addition, you can access the logger from any device connected to the same network; go to: IPADDRESS:5000 (for example 192.168.1.10:5000)
 
-## Setup and Usage on Raspberry Pi
+## Setup and Usage on Raspberry Pi (Do it in this order)
 1. Clone [this](https://github.com/DavidMasin/Battery-Logger-5987) repository to your Raspberry Pi at your desired folder.
    
    command:
@@ -71,27 +71,27 @@ Create a Virtual Environment:
 ```bash
 python3 -m venv battery_project_env
 ```
-Activate the Virtual Environment:
-```bash
-source battery_project_env/bin/activate
-```
-**Install packages/libraries:**
-
 Install the system library libzbar0:
 ```bash
 sudo apt update
 sudo apt install libzbar0
 ```
-Install the required Python packages:
-```bash
-pip install Flask opencv-python-headless pygame pyzbar
-```
-
 Find your Raspberry Pi’s IP address:
 ```bash
 hostname -I
 ```
 **Note the IP address (e.g., 192.168.1.10) to access the app from other devices on the same network.*
+Activate the Virtual Environment:
+```bash
+source battery_project_env/bin/activate
+```
+
+Install the required Python packages:
+```bash
+pip install Flask opencv-python-headless pygame pyzbar
+```
+
+
 
 ## Run the Application
 Start the app on the Raspberry Pi:
