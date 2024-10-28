@@ -231,7 +231,7 @@ def manual_entry():
 
     battery_info = parse_battery_code(battery_code)
 
-    if battery_code in battery_status.items():
+    if not (battery_code in battery_status.keys()):
         flash('Invalid team number in battery code. Please check Settings', 'error')
         return redirect(url_for('index'))
 
