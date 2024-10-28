@@ -49,11 +49,16 @@ Open your browser and go to http://127.0.0.1:5000 to access the web interface
 In addition, you can access the logger from any device connected to the same network; go to: IPADDRESS:5000 (for example 192.168.1.10:5000)
 
 ## Setup and Usage on Raspberry Pi
-1. Clone [this](https://github.com/DavidMasin/Battery-Logger-5987) repository to your PC.
+1. Clone [this](https://github.com/DavidMasin/Battery-Logger-5987) repository to your Raspberry Pi at your desired folder.
+   
+   command:
+   ```bash
+    git clone https://github.com/DavidMasin/Battery-Logger-5987
+   ```
 
-2. Install Required Packages
+3. Install Required Packages
 
-3. Make sure Python and pip are installed.
+4. Make sure Python and pip are installed.
 
 **Create a Virtual Environment:**
 
