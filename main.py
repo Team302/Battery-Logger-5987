@@ -228,7 +228,7 @@ def manual_entry():
 
     battery_code = battery_code.strip()
     battery_code = battery_code
-
+    battery_code = battery_code.replace('-', '')
     battery_info = parse_battery_code(battery_code)
 
     if not (battery_code in battery_status.keys()):
@@ -367,7 +367,6 @@ def add_battery():
 
     # Return a JSON response
     return jsonify({'message': f"Battery {battery_code} added successfully."})
-
 
 
 @app.route('/stop', methods=['POST'])
