@@ -94,7 +94,7 @@
     <!-- Settings Button and Add Battery Button -->
     <div class="text-end my-3">
         <a href="{{ url_for('settings') }}" class="btn btn-secondary">Settings</a>
-        <a href="{{ url_for('add_battery') }}" class="btn btn-primary">Add Battery</a>
+        <button id="add-battery-button" class="btn btn-primary">Add Battery</button>
         <a href="{{ url_for('logs') }}" class="btn btn-primary">View Logs</a>
         <form action="{{ url_for('stop_system') }}" method="post" style="display:inline;">
             <button type="submit" class="btn btn-danger">Stop</button>
@@ -127,6 +127,33 @@
 </div>
 
 <script>
+    document.getElementById('add-battery-button').addEventListener('click', function(event) {
+        // Prevent default behavior (if necessary)
+        event.preventDefault();
+
+        // Send an AJAX POST request to add a battery
+        fetch('/add_battery', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Display success message
+            const messageContainer = document.getElementById('message-container');
+            messageContainer.innerHTML = `<div class="alert alert-success" role="alert">${data.message}</div>`;
+
+            // Optional: Refresh battery status to reflect the new addition
+            fetchBatteryStatus();
+        })
+        .catch(error => {
+            console.error('Error adding battery:', error);
+            // Display error message
+            const messageContainer = document.getElementById('message-container');
+            messageContainer.innerHTML = `<div class="alert alert-danger" role="alert">Error adding battery. Please try again.</div>`;
+        });
+    });
     const videoFeed = document.getElementById("video-feed");
 
     let isDragging = false;
@@ -155,6 +182,11 @@
     document.addEventListener("mouseup", () => {
         isDragging = false;
     });
+    function formatBatteryCode(code) {
+    // Format battery code as TEAM-YEAR-NUMB
+    return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
+    }
+
     function fetchBatteryStatus() {
         fetch('/api/battery_status')
             .then(response => response.json())
@@ -192,7 +224,7 @@
                     }
                     row.classList.add(rowClass);
                     row.innerHTML = `
-                        <td>${battery.battery_code}</td>
+                        <td>${formatBatteryCode(battery.battery_code)}</td>
                         <td>${statusIcon}</td>
                         <td>${battery.display_time}</td>
                         <td>${battery.last_change}</td>

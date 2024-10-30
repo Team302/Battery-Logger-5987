@@ -340,31 +340,34 @@ def settings():
     return render_template('settings.html')
 
 
-@app.route('/add_battery', methods=['GET', 'POST'])
+@app.route('/add_battery', methods=['POST'])
 def add_battery():
     global TEAM_NUMBER
-    if request.method == 'POST':
-        purchase_year = request.form.get('purchase_year')
-        battery_number = request.form.get('battery_number')
 
-        # Generate the battery code
-        battery_code = str(TEAM_NUMBER) + f"{purchase_year}{battery_number}"
+    # Get current year
+    current_year = datetime.now().year
 
-        # Check if the battery code is already in use
-        if battery_code in battery_status:
-            flash("Battery code already exists.", "error")
-        else:
-            # Add new battery to battery_status
-            battery_status[battery_code] = {
-                'status': 'Charging',
-                'last_change': datetime.now(),
-                'display_time': timedelta(0),
-            }
-            flash("Battery added successfully.", "success")
-            # Redirect back to index page
-            return redirect(url_for('index'))
+    # Initialize battery number as a string with leading zeros
+    number = 1
+    battery_number = f"{number:04d}"  # Format number as "0001"
+    battery_code = f"{TEAM_NUMBER}{current_year}{battery_number}"
 
-    return render_template('add_battery.html')
+    # Increment battery number if code already exists
+    while battery_code in battery_status:
+        number += 1
+        battery_number = f"{number:04d}"  # Format number with leading zeros
+        battery_code = f"{TEAM_NUMBER}{current_year}{battery_number}"
+
+    # Add the new battery to `battery_status`
+    battery_status[battery_code] = {
+        'status': 'Charging',
+        'last_change': datetime.now(),
+        'display_time': timedelta(0),
+    }
+
+    # Return a JSON response
+    return jsonify({'message': f"Battery {battery_code} added successfully."})
+
 
 
 @app.route('/stop', methods=['POST'])
