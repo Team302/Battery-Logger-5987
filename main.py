@@ -200,7 +200,9 @@ def auto_update_cooldown_statuses():
                     battery_status[barcode_data]['display_time'] = f"{hours}:{minutes:02}:{seconds:02}"
 
         time.sleep(1)  # Check every second for countdown accuracy
-
+def format_battery_code(code):
+    # Format battery code as TEAM-YEAR-NUMB
+    return f"{code[:4]}-{code[4:8]}-{code[8:]}"
 
 # Flask route to display battery statuses
 @app.route('/')
@@ -210,11 +212,11 @@ def index():
             {
                 'battery_code': code,
                 'status': data['status'],
-                'display_time': data.get('display_time', '00:00:00')
-                # Display formatted time (either elapsed or remaining)
+                'display_time': data.get('display_time', '00:00:00'),
+                'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S")
             } for code, data in battery_status.items()
         ]
-    return render_template('index.html', batteries=battery_info)
+    return render_template('index.html', batteries=battery_info, format_battery_code=format_battery_code)
 
 
 # Flask route for manual battery code entry
@@ -382,7 +384,66 @@ def stop_system():
     os.abort()  # Forcefully terminate the Flask server and Python process
     # Alternatively, use sys.exit() but note that os._exit(0) ensures immediate termination
 
+@app.route('/edit_battery', methods=['POST'])
+def edit_battery():
+    with battery_status_lock:
+        original_battery_code = request.form.get('original_battery_code').strip()
+        new_battery_code = request.form.get('battery_code').strip()
+        new_status = request.form.get('status')
 
+        # Validate inputs
+        if not original_battery_code or not new_battery_code or not new_status:
+            flash('Invalid input data.', 'error')
+            return redirect(url_for('index'))
+
+        # Check if the original battery code exists
+        if original_battery_code not in battery_status:
+            flash('Original battery code not found.', 'error')
+            return redirect(url_for('index'))
+
+        # Update battery code if changed
+        if original_battery_code != new_battery_code:
+            if new_battery_code in battery_status:
+                flash('Battery code already exists.', 'error')
+                return redirect(url_for('index'))
+
+            # Update the key in battery_status dictionary
+            battery_status[new_battery_code] = battery_status.pop(original_battery_code)
+            battery_status[new_battery_code]['last_change'] = datetime.now()
+            flash(f'Battery code changed from {original_battery_code} to {new_battery_code}.', 'success')
+        else:
+            # Update last_change time if status is changed
+            if battery_status[original_battery_code]['status'] != new_status:
+                battery_status[original_battery_code]['status'] = new_status
+                battery_status[original_battery_code]['last_change'] = datetime.now()
+                flash(f'Battery {original_battery_code} status updated to {new_status}.', 'success')
+
+        # Update the status in any case
+        battery_status[new_battery_code]['status'] = new_status
+        battery_status[new_battery_code]['last_change'] = datetime.now()
+
+        # Optionally, save changes to persistent storage
+        save_battery_status()
+
+    return redirect(url_for('index'))
+@app.route('/delete_battery', methods=['POST'])
+def delete_battery():
+    battery_code = request.form.get('battery_code', '').strip()
+
+    if not battery_code:
+        flash('Battery code is required to delete a battery.', 'error')
+        return redirect(url_for('index'))
+
+    with battery_status_lock:
+        if battery_code in battery_status:
+            del battery_status[battery_code]
+            # Optionally, save the updated battery status
+            save_battery_status()
+            flash(f'Battery {battery_code} has been deleted.', 'success')
+        else:
+            flash(f'Battery {battery_code} not found.', 'error')
+
+    return redirect(url_for('index'))
 def save_battery_status():
     with open(PERSISTENT_FILE, 'w') as f:
         # Convert datetimes to strings for JSON compatibility
