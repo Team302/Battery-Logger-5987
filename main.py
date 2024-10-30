@@ -29,7 +29,8 @@ COOLDOWN_DURATION_TIME = 600  # seconds
 
 # Battery status tracking dictionary
 battery_status = {}
-
+# List to keep track of pending batteries that are scanned but not in the system
+pending_batteries = []
 
 # Initialize the CSV file and write headers if it doesn’t exist
 def initialize_csv():
@@ -127,9 +128,20 @@ def scan_barcode():
 
         for barcode in barcodes:
             barcode_data = barcode.data.decode('utf-8')[:-1]  # Discard last digit
-            battery_info = parse_battery_code(barcode_data)
-            if not (barcode_data in battery_status.keys()):
-                break
+
+            # Parse the battery code
+            try:
+                battery_info = parse_battery_code(barcode_data)
+            except Exception as e:
+                print(f"Invalid barcode format: {barcode_data}")
+                continue
+
+            with battery_status_lock:
+                if barcode_data not in battery_status:
+                    # Battery not in system, add to pending list
+                    if barcode_data not in pending_batteries:
+                        pending_batteries.append(barcode_data)
+                    continue  # Skip further processing
 
             if barcode_data not in scanned_barcodes or time.time() - scanned_barcodes[barcode_data] > cooldown_time:
                 scanned_barcodes[barcode_data] = time.time()
@@ -138,31 +150,16 @@ def scan_barcode():
                 with battery_status_lock:
                     current_status = battery_status.get(barcode_data, {}).get('status', 'Charging')
 
-                # Determine the next status based on current status and wait rules
-                if can_change_status(barcode_data, "Cooldown To Robot"):
-                    new_status = "Cooldown To Robot"
-                elif can_change_status(barcode_data, "Ready for ROBOT"):
-                    new_status = "Ready for ROBOT"
-                elif can_change_status(barcode_data, "In Use"):
-                    new_status = "In Use"
-                elif can_change_status(barcode_data, "Cooldown To Charge"):
-                    new_status = "Cooldown To Charge"
-                elif can_change_status(barcode_data, "Ready for CHARGING"):
-                    new_status = "Ready for CHARGING"
-                elif can_change_status(barcode_data, "Charging"):
-                    new_status = "Charging"
+                # Determine the next status based on current status
+                new_status = get_next_status(barcode_data, current_status)
+                if new_status:
+                    log_to_csv(barcode_data, battery_info, new_status)
+                    update_battery_status(barcode_data, new_status)
+                    pygame.mixer.music.load("beep.wav")
+                    pygame.mixer.music.play()
                 else:
                     print(f"Battery {barcode_data} cannot change status yet.")
-                    continue
-
-                log_to_csv(barcode_data, battery_info, new_status)
-                update_battery_status(barcode_data, new_status)
-
-                pygame.mixer.music.load("beep.wav")  # Replace 'beep.wav' with your actual sound file path
-                pygame.mixer.music.play()
-
-        time.sleep(0.1)  # Small delay to reduce CPU usage
-
+        time.sleep(0.1)
     cap.release()
 
 
@@ -204,6 +201,22 @@ def format_battery_code(code):
     # Format battery code as TEAM-YEAR-NUMB
     return f"{code[:4]}-{code[4:8]}-{code[8:]}"
 
+def get_next_status(barcode_data, current_status):
+    # Logic to enforce allowed transitions
+    valid_transitions = {
+        "Charging": "Cooldown To Robot",
+        "Cooldown To Robot": "Ready for ROBOT",
+        "Ready for ROBOT": "In Use",
+        "In Use": "Cooldown To Charge",
+        "Cooldown To Charge": "Ready for CHARGING",
+        "Ready for CHARGING": "Charging"
+    }
+
+    next_status = valid_transitions.get(current_status)
+
+    # Implement any cooldown checks or additional logic here if necessary
+    # For simplicity, we'll assume the transition is allowed
+    return next_status
 # Flask route to display battery statuses
 @app.route('/')
 def index():
@@ -228,42 +241,99 @@ def manual_entry():
         flash('Please enter a battery code.', 'error')
         return redirect(url_for('index'))
 
-    battery_code = battery_code.strip()
-    battery_code = battery_code
-    battery_code = battery_code.replace('-', '')
-    battery_info = parse_battery_code(battery_code)
+    battery_code = battery_code.strip().replace('-', '')
 
-    if not (battery_code in battery_status.keys()):
-        flash('Invalid team number in battery code. Please check Settings', 'error')
+    # Parse the battery code
+    try:
+        battery_info = parse_battery_code(battery_code)
+    except Exception as e:
+        flash('Invalid battery code format.', 'error')
         return redirect(url_for('index'))
 
     with battery_status_lock:
-        current_status = battery_status.get(battery_code, {}).get('status', 'Charging')
+        if battery_code not in battery_status:
+            # Battery not found, render a template asking to add it
+            return render_template('add_battery_prompt.html', battery_code=battery_code, battery_info=battery_info)
+        else:
+            # Existing logic for updating battery status
+            current_status = battery_status[battery_code]['status']
+            # Determine the next status based on current status
+            new_status = get_next_status(battery_code, current_status)
+            if new_status:
+                log_to_csv(battery_code, battery_info, new_status)
+                update_battery_status(battery_code, new_status)
+                flash(f"Battery {battery_code} status updated to {new_status}.", 'success')
+            else:
+                flash(f"Battery {battery_code} cannot change status yet.", 'error')
+            return redirect(url_for('index'))
+@app.route('/confirm_add_battery', methods=['POST'])
+def confirm_add_battery():
+    battery_code = request.form.get('battery_code')
 
-    # Determine the next status based on current status and wait rules
-    if can_change_status(battery_code, "Cooldown To Robot"):
-        new_status = "Cooldown To Robot"
-    elif can_change_status(battery_code, "Ready for ROBOT"):
-        new_status = "Ready for ROBOT"
-    elif can_change_status(battery_code, "In Use"):
-        new_status = "In Use"
-    elif can_change_status(battery_code, "Cooldown To Charge"):
-        new_status = "Cooldown To Charge"
-    elif can_change_status(battery_code, "Ready for CHARGING"):
-        new_status = "Ready for CHARGING"
-    elif can_change_status(battery_code, "Charging"):
-        new_status = "Charging"
-    else:
-        flash(f"Battery {battery_code} cannot change status yet.", 'error')
+    if not battery_code:
+        flash('Battery code is missing.', 'error')
         return redirect(url_for('index'))
 
-    log_to_csv(battery_code, battery_info, new_status)
-    update_battery_status(battery_code, new_status)
+    battery_code = battery_code.strip().replace('-', '')
 
-    flash(f"Battery {battery_code} status updated to {new_status}.", 'success')
+    # Parse the battery code
+    try:
+        battery_info = parse_battery_code(battery_code)
+    except Exception as e:
+        flash('Invalid battery code format.', 'error')
+        return redirect(url_for('index'))
+
+    with battery_status_lock:
+        if battery_code in battery_status:
+            flash('Battery already exists in the system.', 'error')
+            return redirect(url_for('index'))
+
+        # Add the battery to the system with an initial status
+        battery_status[battery_code] = {
+            'status': 'Charging',
+            'last_change': datetime.now(),
+            'display_time': timedelta(0),
+        }
+
+        # Optionally, log this action
+        log_to_csv(battery_code, battery_info, 'Added to System')
+
+    flash(f'Battery {battery_code} has been added to the system.', 'success')
     return redirect(url_for('index'))
+@app.route('/api/confirm_add_battery', methods=['POST'])
+def api_confirm_add_battery():
+    battery_code = request.json.get('battery_code')
 
+    if not battery_code:
+        return jsonify({'success': False, 'message': 'Battery code is missing.'})
 
+    battery_code = battery_code.strip().replace('-', '')
+
+    # Parse the battery code
+    try:
+        battery_info = parse_battery_code(battery_code)
+    except Exception as e:
+        return jsonify({'success': False, 'message': 'Invalid battery code format.'})
+
+    with battery_status_lock:
+        if battery_code in battery_status:
+            return jsonify({'success': False, 'message': 'Battery already exists in the system.'})
+
+        # Add the battery to the system with an initial status
+        battery_status[battery_code] = {
+            'status': 'Charging',
+            'last_change': datetime.now(),
+            'display_time': timedelta(0),
+        }
+
+        # Remove from pending batteries
+        if battery_code in pending_batteries:
+            pending_batteries.remove(battery_code)
+
+        # Optionally, log this action
+        log_to_csv(battery_code, battery_info, 'Added to System')
+
+    return jsonify({'success': True, 'message': f'Battery {battery_code} has been added to the system.'})
 # API endpoint to provide battery status as JSON
 @app.route('/api/battery_status')
 def battery_status_api():
@@ -278,7 +348,18 @@ def battery_status_api():
         ]
     return jsonify(battery_info)
 
-
+@app.route('/api/pending_batteries')
+def get_pending_batteries():
+    with battery_status_lock:
+        return jsonify(pending_batteries)
+@app.route('/api/remove_pending_battery', methods=['POST'])
+def remove_pending_battery():
+    battery_code = request.json.get('battery_code')
+    if battery_code:
+        with battery_status_lock:
+            if battery_code in pending_batteries:
+                pending_batteries.remove(battery_code)
+    return jsonify({'success': True})
 @app.route('/logs')
 def logs():
     logs = []
