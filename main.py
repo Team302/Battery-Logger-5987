@@ -82,7 +82,9 @@ def update_battery_status(barcode_data, new_status):
     battery_status[barcode_data] = {
         'status': new_status,
         'display_time': timedelta(0),
-        'last_change': datetime.now()
+        'last_change': datetime.now(),
+        'notes': battery_status[barcode_data]['notes']
+
     }
     print(
         f"[update_battery_status] Battery {barcode_data} status updated to {new_status} at {battery_status[barcode_data]['last_change']}")
@@ -231,10 +233,13 @@ def index():
             {
                 'battery_code': code,
                 'status': data['status'],
-                'display_time': data.get('display_time', '00:00:00'),
+                'notes': data['notes'],
+                'display_time': str(data.get('display_time', '00:00:00')),
                 'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S")
             } for code, data in battery_status.items()
         ]
+        print(battery_info)
+
     return render_template('index.html', batteries=battery_info, format_battery_code=format_battery_code)
 
 
@@ -274,6 +279,50 @@ def manual_entry():
             return redirect(url_for('index'))
 
 
+@app.route('/api/get_battery_info/<battery_code>')
+def get_battery_info(battery_code):
+    battery_code = battery_code.strip()
+    with battery_status_lock:
+        if battery_code in battery_status:
+            data = battery_status[battery_code]
+            battery_info = {
+                'battery_code': battery_code,
+                'status': data['status'],
+                'notes': data.get('notes', '')
+            }
+            return jsonify(battery_info)
+        else:
+            return jsonify({'error': 'Battery not found'}), 404
+
+
+@app.route('/edit_battery', methods=['POST'])
+def edit_battery():
+    with battery_status_lock:
+        original_battery_code = request.form.get('original_battery_code').strip()
+        new_battery_code = request.form.get('battery_code').strip()
+        new_status = request.form.get('status')
+        notes = request.form.get('notes', '').strip()
+
+        if original_battery_code != new_battery_code:
+            # Handle renaming of battery code
+            if new_battery_code in battery_status:
+                flash('Battery code already exists.', 'error')
+                return redirect(url_for('index'))
+            battery_status[new_battery_code] = battery_status.pop(original_battery_code)
+
+        # Update status and notes
+        battery_status[new_battery_code]['status'] = new_status
+        battery_status[new_battery_code]['notes'] = notes
+        battery_status[new_battery_code]['last_change'] = datetime.now()
+        battery_status[new_battery_code]['display_time'] = timedelta(0)
+
+        # Save changes
+        save_battery_status()
+
+        flash(f'Battery {new_battery_code} has been updated.', 'success')
+    return redirect(url_for('index'))
+
+
 @app.route('/confirm_add_battery', methods=['POST'])
 def confirm_add_battery():
     battery_code = request.form.get('battery_code')
@@ -301,6 +350,7 @@ def confirm_add_battery():
             'status': 'Charging',
             'last_change': datetime.now(),
             'display_time': timedelta(0),
+            'notes': ''  # Initialize the notes field as an empty string
         }
 
         # Optionally, log this action
@@ -334,6 +384,7 @@ def api_confirm_add_battery():
             'status': 'Charging',
             'last_change': datetime.now(),
             'display_time': timedelta(0),
+            'notes': ''  # Initialize the notes field as an empty string
         }
 
         # Remove from pending batteries
@@ -354,8 +405,9 @@ def battery_status_api():
             {
                 'battery_code': code,
                 'status': data['status'],
-                'display_time': str(data['display_time']),
-                'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S")
+                'display_time': str(data.get('display_time', '00:00:00')),
+                'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S"),
+                'notes': data.get('notes', '')  # Include 'notes' in the API response
             } for code, data in battery_status.items()
         ]
     return jsonify(battery_info)
@@ -463,6 +515,7 @@ def add_battery():
         'status': 'Charging',
         'last_change': datetime.now(),
         'display_time': timedelta(0),
+        'notes': ''  # Initialize the notes field as an empty string
     }
 
     # Return a JSON response
@@ -481,50 +534,6 @@ def stop_system():
     save_battery_status()
     os.abort()  # Forcefully terminate the Flask server and Python process
     # Alternatively, use sys.exit() but note that os._exit(0) ensures immediate termination
-
-
-@app.route('/edit_battery', methods=['POST'])
-def edit_battery():
-    with battery_status_lock:
-        original_battery_code = request.form.get('original_battery_code').strip()
-        new_battery_code = request.form.get('battery_code').strip()
-        new_status = request.form.get('status')
-
-        # Validate inputs
-        if not original_battery_code or not new_battery_code or not new_status:
-            flash('Invalid input data.', 'error')
-            return redirect(url_for('index'))
-
-        # Check if the original battery code exists
-        if original_battery_code not in battery_status:
-            flash('Original battery code not found.', 'error')
-            return redirect(url_for('index'))
-
-        # Update battery code if changed
-        if original_battery_code != new_battery_code:
-            if new_battery_code in battery_status:
-                flash('Battery code already exists.', 'error')
-                return redirect(url_for('index'))
-
-            # Update the key in battery_status dictionary
-            battery_status[new_battery_code] = battery_status.pop(original_battery_code)
-            battery_status[new_battery_code]['last_change'] = datetime.now()
-            flash(f'Battery code changed from {original_battery_code} to {new_battery_code}.', 'success')
-        else:
-            # Update last_change time if status is changed
-            if battery_status[original_battery_code]['status'] != new_status:
-                battery_status[original_battery_code]['status'] = new_status
-                battery_status[original_battery_code]['last_change'] = datetime.now()
-                flash(f'Battery {original_battery_code} status updated to {new_status}.', 'success')
-
-        # Update the status in any case
-        battery_status[new_battery_code]['status'] = new_status
-        battery_status[new_battery_code]['last_change'] = datetime.now()
-
-        # Optionally, save changes to persistent storage
-        save_battery_status()
-
-    return redirect(url_for('index'))
 
 
 @app.route('/delete_battery', methods=['POST'])
@@ -549,11 +558,11 @@ def delete_battery():
 
 def save_battery_status():
     with open(PERSISTENT_FILE, 'w') as f:
-        # Convert datetimes to strings for JSON compatibility
         data_to_save = {
             code: {
                 'status': data['status'],
-                'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S")
+                'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S"),
+                'notes': data.get('notes', '')  # Save the notes
             }
             for code, data in battery_status.items()
         }
@@ -565,16 +574,13 @@ def load_initial_battery_status():
     if os.path.exists(PERSISTENT_FILE):
         with open(PERSISTENT_FILE, 'r') as f:
             data_loaded = json.load(f)
-            print("DATA: ", data_loaded)
             for code, data in data_loaded.items():
                 battery_status[code] = {
                     'status': data['status'],
                     'display_time': timedelta(0),
-                    'last_change': datetime.strptime(data['last_change'], "%Y-%m-%d %H:%M:%S")
+                    'last_change': datetime.strptime(data['last_change'], "%Y-%m-%d %H:%M:%S"),
+                    'notes': data.get('notes', '')  # Load the notes or default to empty string
                 }
-        print("Battery status loaded from file.")
-    else:
-        print("No persistent file found; starting with an empty battery status.")
 
 
 # Start the Flask app and background tasks
