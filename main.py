@@ -83,13 +83,35 @@ def update_battery_status(barcode_data, new_status):
         'status': new_status,
         'display_time': timedelta(0),
         'last_change': datetime.now(),
-        'notes': battery_status[barcode_data]['notes']
-
+        'notes': battery_status[barcode_data]['notes'],
+        'usage_count': battery_status[barcode_data]['usage_count']
     }
+    if battery_status[barcode_data]['status'] == "In Use":
+        battery_status[barcode_data]['usage_count'] += 1
     print(
         f"[update_battery_status] Battery {barcode_data} status updated to {new_status} at {battery_status[barcode_data]['last_change']}")
+def calculate_average_usage():
+    with battery_status_lock:
+        total_usage = sum(battery['usage_count'] for battery in battery_status.values())
+        battery_count = len(battery_status)
+        if battery_count == 0:
+            return 0
+        average_usage = total_usage / battery_count
+        return average_usage
+def identify_usage_outliers():
+    average_usage = calculate_average_usage()
+    overused_batteries = []
+    underused_batteries = []
 
+    with battery_status_lock:
+        for code, data in battery_status.items():
+            usage_count = data['usage_count']
+            if usage_count >= average_usage + 2:
+                overused_batteries.append(code)
+            elif usage_count <= average_usage - 2:
+                underused_batteries.append(code)
 
+    return overused_batteries, underused_batteries
 def can_change_status(barcode_data, new_status):
     with battery_status_lock:
         if barcode_data in battery_status:
@@ -228,17 +250,30 @@ def get_next_status(barcode_data, current_status):
 # Flask route to display battery statuses
 @app.route('/')
 def index():
+    average_usage = calculate_average_usage()
+    overused_batteries, underused_batteries = identify_usage_outliers()
+
     with battery_status_lock:
         battery_info = [
             {
                 'battery_code': code,
                 'status': data['status'],
-                'notes': data['notes'],
                 'display_time': str(data.get('display_time', '00:00:00')),
-                'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S")
-            } for code, data in battery_status.items()
+                'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S"),
+                'usage_count': data.get('usage_count', 0),
+                'notes': data.get('notes', '')
+            }
+            for code, data in battery_status.items()
         ]
-        print(battery_info)
+
+    # Display warnings
+    if overused_batteries:
+        overused_list = ', '.join(format_battery_code(code) for code in overused_batteries)
+        flash(f'The following batteries are overused (usage more than average + 2): {overused_list}', 'warning')
+
+    if underused_batteries:
+        underused_list = ', '.join(format_battery_code(code) for code in underused_batteries)
+        flash(f'The following batteries are underused (usage less than average - 2): {underused_list}', 'warning')
 
     return render_template('index.html', batteries=battery_info, format_battery_code=format_battery_code)
 
@@ -350,7 +385,8 @@ def confirm_add_battery():
             'status': 'Charging',
             'last_change': datetime.now(),
             'display_time': timedelta(0),
-            'notes': ''  # Initialize the notes field as an empty string
+            'usage_count': 0,  # Initialize usage count
+            'notes': ''  # If you have notes
         }
 
         # Optionally, log this action
@@ -384,7 +420,8 @@ def api_confirm_add_battery():
             'status': 'Charging',
             'last_change': datetime.now(),
             'display_time': timedelta(0),
-            'notes': ''  # Initialize the notes field as an empty string
+            'usage_count': 0,  # Initialize usage count
+            'notes': ''  # If you have notes
         }
 
         # Remove from pending batteries
@@ -515,7 +552,8 @@ def add_battery():
         'status': 'Charging',
         'last_change': datetime.now(),
         'display_time': timedelta(0),
-        'notes': ''  # Initialize the notes field as an empty string
+        'usage_count': 0,  # Initialize usage count
+        'notes': ''  # If you have notes
     }
 
     # Return a JSON response
@@ -562,12 +600,12 @@ def save_battery_status():
             code: {
                 'status': data['status'],
                 'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S"),
-                'notes': data.get('notes', '')  # Save the notes
+                'usage_count': data.get('usage_count', 0),
+                'notes': data.get('notes', '')
             }
             for code, data in battery_status.items()
         }
         json.dump(data_to_save, f)
-    print("Battery status saved to file.")
 
 
 def load_initial_battery_status():
@@ -577,9 +615,10 @@ def load_initial_battery_status():
             for code, data in data_loaded.items():
                 battery_status[code] = {
                     'status': data['status'],
-                    'display_time': timedelta(0),
                     'last_change': datetime.strptime(data['last_change'], "%Y-%m-%d %H:%M:%S"),
-                    'notes': data.get('notes', '')  # Load the notes or default to empty string
+                    'display_time': timedelta(0),
+                    'usage_count': data.get('usage_count', 0),
+                    'notes': data.get('notes', '')
                 }
 
 
