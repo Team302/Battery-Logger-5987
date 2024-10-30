@@ -32,6 +32,7 @@ battery_status = {}
 # List to keep track of pending batteries that are scanned but not in the system
 pending_batteries = []
 
+
 # Initialize the CSV file and write headers if it doesn’t exist
 def initialize_csv():
     with open('battery_log.csv', mode='a', newline='') as file:
@@ -197,9 +198,12 @@ def auto_update_cooldown_statuses():
                     battery_status[barcode_data]['display_time'] = f"{hours}:{minutes:02}:{seconds:02}"
 
         time.sleep(1)  # Check every second for countdown accuracy
+
+
 def format_battery_code(code):
     # Format battery code as TEAM-YEAR-NUMB
     return f"{code[:4]}-{code[4:8]}-{code[8:]}"
+
 
 def get_next_status(barcode_data, current_status):
     # Logic to enforce allowed transitions
@@ -217,6 +221,8 @@ def get_next_status(barcode_data, current_status):
     # Implement any cooldown checks or additional logic here if necessary
     # For simplicity, we'll assume the transition is allowed
     return next_status
+
+
 # Flask route to display battery statuses
 @app.route('/')
 def index():
@@ -266,6 +272,8 @@ def manual_entry():
             else:
                 flash(f"Battery {battery_code} cannot change status yet.", 'error')
             return redirect(url_for('index'))
+
+
 @app.route('/confirm_add_battery', methods=['POST'])
 def confirm_add_battery():
     battery_code = request.form.get('battery_code')
@@ -300,6 +308,8 @@ def confirm_add_battery():
 
     flash(f'Battery {battery_code} has been added to the system.', 'success')
     return redirect(url_for('index'))
+
+
 @app.route('/api/confirm_add_battery', methods=['POST'])
 def api_confirm_add_battery():
     battery_code = request.json.get('battery_code')
@@ -334,6 +344,8 @@ def api_confirm_add_battery():
         log_to_csv(battery_code, battery_info, 'Added to System')
 
     return jsonify({'success': True, 'message': f'Battery {battery_code} has been added to the system.'})
+
+
 # API endpoint to provide battery status as JSON
 @app.route('/api/battery_status')
 def battery_status_api():
@@ -348,10 +360,13 @@ def battery_status_api():
         ]
     return jsonify(battery_info)
 
+
 @app.route('/api/pending_batteries')
 def get_pending_batteries():
     with battery_status_lock:
         return jsonify(pending_batteries)
+
+
 @app.route('/api/remove_pending_battery', methods=['POST'])
 def remove_pending_battery():
     battery_code = request.json.get('battery_code')
@@ -360,6 +375,8 @@ def remove_pending_battery():
             if battery_code in pending_batteries:
                 pending_batteries.remove(battery_code)
     return jsonify({'success': True})
+
+
 @app.route('/logs')
 def logs():
     logs = []
@@ -465,6 +482,7 @@ def stop_system():
     os.abort()  # Forcefully terminate the Flask server and Python process
     # Alternatively, use sys.exit() but note that os._exit(0) ensures immediate termination
 
+
 @app.route('/edit_battery', methods=['POST'])
 def edit_battery():
     with battery_status_lock:
@@ -507,6 +525,8 @@ def edit_battery():
         save_battery_status()
 
     return redirect(url_for('index'))
+
+
 @app.route('/delete_battery', methods=['POST'])
 def delete_battery():
     battery_code = request.form.get('battery_code', '').strip()
@@ -525,6 +545,8 @@ def delete_battery():
             flash(f'Battery {battery_code} not found.', 'error')
 
     return redirect(url_for('index'))
+
+
 def save_battery_status():
     with open(PERSISTENT_FILE, 'w') as f:
         # Convert datetimes to strings for JSON compatibility
