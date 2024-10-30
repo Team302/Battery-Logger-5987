@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="b1bebdbe-3b6e-4f1c-b339-ecc453bafcd3" name="Changes" comment="Added option to add batteries by entering them &amp; add report issue logo">
+      <change beforePath="$PROJECT_DIR$/battery_status.json" beforeDir="false" afterPath="$PROJECT_DIR$/battery_status.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="HTML File" />
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="d33ebd378e8aa16e3dc6b5f6aee7c00408093ee4" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectId" id="2nxsLEqkrTXQQhvBXCCiGpXtB4E" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;DefaultHtmlFileTemplate&quot;: &quot;HTML File&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/user/Documents/Galactic Code/Battery-Logger-5987/static/fonts&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\user\Documents\Galactic Code\Battery-Logger-5987\static\fonts" />
+      <recent name="C:\Users\user\Documents\Galactic Code\Battery-Logger-5987" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\user\Documents\Galactic Code\Battery-Logger-5987\static\images" />
+      <recent name="C:\Users\user\Documents\Galactic Code\Battery-Logger-5987\static\fonts\Lato" />
+      <recent name="C:\Users\user\Documents\Galactic Code\2024-Empty" />
+      <recent name="C:\Users\user\Documents\Galactic Code\Battery-Logger-5987\templates" />
+      <recent name="C:\Users\user\Documents\Galactic Code\Battery-Logger-5987" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Python.main (1)">
+    <configuration name="app" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Battery-Logger-5987" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="barcode_scanner (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Battery-Logger-5987" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/barcode_scanner.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="barcode_scanner" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Battery-Logger-5987" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="C:\Users\user\Documents\Galactic Code\Battery-Logger-5987\barcode_scanner.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="main (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Battery-Logger-5987" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="start" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Battery-Logger-5987" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/start.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.main (1)" />
+        <item itemvalue="Python.start" />
+        <item itemvalue="Python.app" />
+        <item itemvalue="Python.barcode_scanner (1)" />
+        <item itemvalue="Python.barcode_scanner" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="b1bebdbe-3b6e-4f1c-b339-ecc453bafcd3" name="Changes" comment="" />
+      <created>1729926003711</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1729926003711</updated>
+    </task>
+    <task id="LOCAL-00001" summary="initial">
+      <created>1729938398748</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1729938398748</updated>
+    </task>
+    <task id="LOCAL-00002" summary="changed to pygame for sound">
+      <created>1729939379508</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1729939379508</updated>
+    </task>
+    <task id="LOCAL-00003" summary="added camera">
+      <created>1729940515680</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1729940515680</updated>
+    </task>
+    <task id="LOCAL-00004" summary="added compitability to localhost connect from other devices">
+      <created>1729945394891</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1729945394891</updated>
+    </task>
+    <task id="LOCAL-00005" summary="changed the Cooldown to 10 minutes (instead of 10 seconds)">
+      <created>1729947569573</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1729947569573</updated>
+    </task>
+    <task id="LOCAL-00006" summary="added Elapsed/Remaining Time">
+      <created>1729954625284</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1729954625284</updated>
+    </task>
+    <task id="LOCAL-00007" summary="delete Logs">
+      <created>1729954826823</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1729954826823</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Added &quot;Add Battery&quot;">
+      <created>1729955867784</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1729955867784</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Organized file to multiple files">
+      <created>1729956858126</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1729956858126</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Updated numbers">
+      <created>1729958157655</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1729958157655</updated>
+    </task>
+    <task id="LOCAL-00011" summary="debugging camera PI">
+      <created>1729961894634</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1729961894634</updated>
+    </task>
+    <task id="LOCAL-00012" summary="debugging camera PI">
+      <created>1729962536940</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1729962536940</updated>
+    </task>
+    <task id="LOCAL-00013" summary="cleared Logs">
+      <created>1730052201369</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1730052201369</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Updated UI">
+      <created>1730138731391</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1730138731391</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Updated UI">
+      <created>1730140846897</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1730140846897</updated>
+    </task>
+    <task id="LOCAL-00016" summary="Cleared Logs and Batteries">
+      <created>1730141062273</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1730141062273</updated>
+    </task>
+    <task id="LOCAL-00017" summary="Cleared Logs &#10;Fixed manual input (taking every string and making it a battery)">
+      <created>1730147987265</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1730147987265</updated>
+    </task>
+    <task id="LOCAL-00018" summary="Fixed Add Battery">
+      <created>1730280800865</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1730280800865</updated>
+    </task>
+    <task id="LOCAL-00019" summary="Made manual input work with dashes">
+      <created>1730281885422</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1730281885422</updated>
+    </task>
+    <task id="LOCAL-00020" summary="Added option to Edit and Delete batteries :)">
+      <created>1730285225768</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1730285225768</updated>
+    </task>
+    <task id="LOCAL-00021" summary="Added option to add batteries by entering them &amp; add report issue logo">
+      <created>1730288063548</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1730288063548</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="initial" />
+    <MESSAGE value="changed to pygame for sound" />
+    <MESSAGE value="added camera" />
+    <MESSAGE value="added compitability to localhost connect from other devices" />
+    <MESSAGE value="changed the Cooldown to 10 minutes (instead of 10 seconds)" />
+    <MESSAGE value="added Elapsed/Remaining Time" />
+    <MESSAGE value="delete Logs" />
+    <MESSAGE value="Added &quot;Add Battery&quot;" />
+    <MESSAGE value="Organized file to multiple files" />
+    <MESSAGE value="Updated numbers" />
+    <MESSAGE value="test" />
+    <MESSAGE value="debugging camera PI" />
+    <MESSAGE value="cleared Logs" />
+    <MESSAGE value="Updated UI" />
+    <MESSAGE value="Cleared Logs and Batteries" />
+    <MESSAGE value="Cleared Logs &#10;Fixed manual input (taking every string and making it a battery)" />
+    <MESSAGE value="Fixed Add Battery" />
+    <MESSAGE value="Made manual input work with dashes" />
+    <MESSAGE value="Added option to Edit and Delete batteries :)" />
+    <MESSAGE value="Added option to add batteries by entering them &amp; add report issue logo" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added option to add batteries by entering them &amp; add report issue logo" />
+  </component>
+</project>

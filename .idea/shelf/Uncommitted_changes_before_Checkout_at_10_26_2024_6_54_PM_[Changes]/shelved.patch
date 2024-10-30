@@ -1,0 +1,333 @@
+Index: camera.py
+===================================================================
+diff --git a/camera.py b/camera.py
+--- a/camera.py	
++++ b/camera.py	
+@@ -2,7 +2,8 @@
+ import pygame
+ import cv2
+ from pyzbar.pyzbar import decode
+-from config import battery_status, battery_status_lock
++
++from app import battery_status_lock, battery_status
+ from battery import parse_battery_code, update_battery_status, can_change_status
+ from utils import log_to_csv
+ 
+@@ -54,9 +55,23 @@
+                 log_to_csv(barcode_data, battery_info, new_status)
+                 update_battery_status(barcode_data, new_status)
+ 
+-                pygame.mixer.music.load("static/beep.wav")  # Ensure beep.wav is in the static folder
++                pygame.mixer.music.load("beep.wav")  # Ensure beep.wav is in the static folder
+                 pygame.mixer.music.play()
+ 
+         time.sleep(0.1)  # Small delay to reduce CPU usage
+ 
+     cap.release()
++def generate_frames():
++    # Apply the resolution setting to the camera
++    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
++    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
++
++    while True:
++        success, frame = cap.read()
++        if not success:
++            break
++        else:
++            ret, buffer = cv2.imencode('.jpg', frame)
++            frame = buffer.tobytes()
++            yield (b'--frame\r\n'
++                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+Index: app.py
+===================================================================
+diff --git a/app.py b/app.py
+--- a/app.py	
++++ b/app.py	
+@@ -1,7 +1,28 @@
+-from flask import Flask
+-from camera import scan_barcode
++import csv
++from datetime import datetime, timedelta
++
++from flask import Flask, Response, jsonify
++from camera import scan_barcode, generate_frames
+ from battery import load_initial_battery_status, save_battery_status, auto_update_cooldown_statuses
+ import threading
++from flask import render_template, redirect, request, flash, url_for
++from battery import parse_battery_code, can_change_status, update_battery_status
++from utils import log_to_csv
++import threading
++
++# Constants and settings
++PERSISTENT_FILE = 'battery_status.json'
++COOLDOWN_DURATION_TIME = 600  # in seconds
++CAPTURE_WIDTH = 640
++CAPTURE_HEIGHT = 480
++
++# Lock for thread safety
++battery_status_lock = threading.Lock()
++
++# Initialize battery status dictionary
++battery_status = {}
++
++
+ 
+ app = Flask(__name__)
+ app.secret_key = 'your_secret_key_here'
+@@ -16,8 +37,151 @@
+ cooldown_thread = threading.Thread(target=auto_update_cooldown_statuses, daemon=True)
+ cooldown_thread.start()
+ 
+-if __name__ == "__main__":
++
++# Flask route to display battery statuses
++@app.route('/')
++def index():
++    with battery_status_lock:
++        battery_info = [
++            {
++                'battery_code': code,
++                'status': data['status'],
++                'display_time': data.get('display_time', '00:00:00')
++                # Display formatted time (either elapsed or remaining)
++            } for code, data in battery_status.items()
++        ]
++    return render_template('index.html', batteries=battery_info)
++
++
++# Flask route for manual battery code entry
++@app.route('/manual_entry', methods=['POST'])
++def manual_entry():
++    battery_code = request.form.get('battery_code')
++
++    if not battery_code:
++        flash('Please enter a battery code.', 'error')
++        return redirect(url_for('index'))
++
++    battery_code = battery_code.strip()
++    battery_code = battery_code
++
++    battery_info = parse_battery_code(battery_code)
++
++    if battery_info['team_number'] != "5987":
++        flash('Invalid team number in battery code.', 'error')
++        return redirect(url_for('index'))
++
++    with battery_status_lock:
++        current_status = battery_status.get(battery_code, {}).get('status', 'Charging')
++
++    # Determine the next status based on current status and wait rules
++    if can_change_status(battery_code, "Cooldown To Robot"):
++        new_status = "Cooldown To Robot"
++    elif can_change_status(battery_code, "Ready for ROBOT"):
++        new_status = "Ready for ROBOT"
++    elif can_change_status(battery_code, "In Use"):
++        new_status = "In Use"
++    elif can_change_status(battery_code, "Cooldown To Charge"):
++        new_status = "Cooldown To Charge"
++    elif can_change_status(battery_code, "Ready for CHARGING"):
++        new_status = "Ready for CHARGING"
++    elif can_change_status(battery_code, "Charging"):
++        new_status = "Charging"
++    else:
++        flash(f"Battery {battery_code} cannot change status yet.", 'error')
++        return redirect(url_for('index'))
++
++    log_to_csv(battery_code, battery_info, new_status)
++    update_battery_status(battery_code, new_status)
++
++    flash(f"Battery {battery_code} status updated to {new_status}.", 'success')
++    return redirect(url_for('index'))
++
++
++# API endpoint to provide battery status as JSON
++@app.route('/api/battery_status')
++def battery_status_api():
++    with battery_status_lock:
++        battery_info = [
++            {
++                'battery_code': code,
++                'status': data['status'],
++                'display_time': str(data['display_time']),
++                'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S")
++            } for code, data in battery_status.items()
++        ]
++    return jsonify(battery_info)
++
++
++@app.route('/logs')
++def logs():
++    logs = []
++    # Read the CSV file
+     try:
+-        app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
++        with open('../Battery-Logger-5987/battery_log.csv', mode='r') as file:
++            reader = csv.DictReader(file)
++            for row in reader:
++                logs.append(row)
++    except FileNotFoundError:
++        flash("Log file not found.", "error")
++
++    # Pass logs data to the template
++    return render_template('logs.html', logs=logs)
++
++
++@app.route('/video_feed')
++def video_feed():
++    return Response(generate_frames(),
++                    mimetype='multipart/x-mixed-replace; boundary=frame')
++
++
++
++
++@app.route('/settings', methods=['GET', 'POST'])
++def settings():
++    global COOLDOWN_DURATION_TIME
++    if request.method == 'POST':
++        # Retrieve and apply settings
++        try:
++            COOLDOWN_DURATION_TIME = int(request.form.get('cooldown_time', COOLDOWN_DURATION_TIME))
++            flash("Settings have been updated.", "success")
++        except:
++            flash("Settings have NOT been updated.", "warning")
++
++    return render_template('settings.html')
++
++
++@app.route('/add_battery', methods=['GET', 'POST'])
++def add_battery():
++    if request.method == 'POST':
++        team_number = request.form.get('team_number')
++        purchase_year = request.form.get('purchase_year')
++        purchase_month = request.form.get('purchase_month')
++        battery_number = request.form.get('battery_number')
++
++        # Generate the battery code
++        battery_code = f"{team_number}{purchase_year}{purchase_month}{battery_number}"
++
++        # Check if the battery code is already in use
++        if battery_code in battery_status:
++            flash("Battery code already exists.", "error")
++        else:
++            # Add new battery to battery_status
++            battery_status[battery_code] = {
++                'status': 'Charging',
++                'last_change': datetime.now(),
++                'display_time': timedelta(0),
++            }
++            flash("Battery added successfully.", "success")
++            # Redirect back to index page
++            return redirect(url_for('index'))
++
++    return render_template('add_battery.html')
++
++
++if __name__ == '__main__':
++    print("hi")
++    try:
++        app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+     finally:
+         save_battery_status()
+Index: config.py
+===================================================================
+diff --git a/config.py b/config.py
+--- a/config.py	
++++ b/config.py	
+@@ -1,13 +1,1 @@
+-import threading
+-
+-# Constants and settings
+-PERSISTENT_FILE = 'battery_status.json'
+-COOLDOWN_DURATION_TIME = 600  # in seconds
+-CAPTURE_WIDTH = 640
+-CAPTURE_HEIGHT = 480
+ 
+-# Lock for thread safety
+-battery_status_lock = threading.Lock()
+-
+-# Initialize battery status dictionary
+-battery_status = {}
+Index: battery.py
+===================================================================
+diff --git a/battery.py b/battery.py
+--- a/battery.py	
++++ b/battery.py	
+@@ -3,7 +3,8 @@
+ import csv
+ import time
+ from datetime import datetime, timedelta
+-from config import battery_status, battery_status_lock, COOLDOWN_DURATION_TIME, PERSISTENT_FILE
++
++from app import PERSISTENT_FILE, battery_status, battery_status_lock, COOLDOWN_DURATION_TIME
+ 
+ 
+ # Initialize the CSV file
+Index: routes.py
+===================================================================
+diff --git a/routes.py b/routes.py
+--- a/routes.py	
++++ b/routes.py	
+@@ -1,63 +1,4 @@
+-from flask import render_template, redirect, request, flash, url_for
+-from app import app
+-from config import battery_status, battery_status_lock
+-from battery import parse_battery_code, can_change_status, update_battery_status
+-from utils import log_to_csv
+-
+-
+-# Flask route to display battery statuses
+-@app.route('/')
+-def index():
+-    with battery_status_lock:
+-        battery_info = [
+-            {
+-                'battery_code': code,
+-                'status': data['status'],
+-                'display_time': data.get('display_time', '00:00:00')  # Display formatted time (either elapsed or remaining)
+-            } for code, data in battery_status.items()
+-        ]
+-    return render_template('index.html', batteries=battery_info)
+-
+-# Flask route for manual battery code entry
+-@app.route('/manual_entry', methods=['POST'])
+-def manual_entry():
+-    battery_code = request.form.get('battery_code')
+ 
+-    if not battery_code:
+-        flash('Please enter a battery code.', 'error')
+-        return redirect(url_for('index'))
+ 
+-    battery_code = battery_code.strip()
+-    battery_code = battery_code
+ 
+-    battery_info = parse_battery_code(battery_code)
+ 
+-    if battery_info['team_number'] != "5987":
+-        flash('Invalid team number in battery code.', 'error')
+-        return redirect(url_for('index'))
+-
+-    with battery_status_lock:
+-        current_status = battery_status.get(battery_code, {}).get('status', 'Charging')
+-
+-    # Determine the next status based on current status and wait rules
+-    if can_change_status(battery_code, "Cooldown To Robot"):
+-        new_status = "Cooldown To Robot"
+-    elif can_change_status(battery_code, "Ready for ROBOT"):
+-        new_status = "Ready for ROBOT"
+-    elif can_change_status(battery_code, "In Use"):
+-        new_status = "In Use"
+-    elif can_change_status(battery_code, "Cooldown To Charge"):
+-        new_status = "Cooldown To Charge"
+-    elif can_change_status(battery_code, "Ready for CHARGING"):
+-        new_status = "Ready for CHARGING"
+-    elif can_change_status(battery_code, "Charging"):
+-        new_status = "Charging"
+-    else:
+-        flash(f"Battery {battery_code} cannot change status yet.", 'error')
+-        return redirect(url_for('index'))
+-
+-    log_to_csv(battery_code, battery_info, new_status)
+-    update_battery_status(battery_code, new_status)
+-
+-    flash(f"Battery {battery_code} status updated to {new_status}.", 'success')
+-    return redirect(url_for('index'))
