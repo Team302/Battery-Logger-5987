@@ -317,34 +317,8 @@ def statistics():
     # Generate graphs
     graphs = []
 
-    # Graph 1: Total Battery Usage Counts
-    usage_counts = df[df['Status'] == 'In Use'].groupby('Battery Code').count()['Timestamp'].reset_index()
-    usage_counts.rename(columns={'Timestamp': 'Usage Count'}, inplace=True)
-    fig_usage_counts = px.bar(usage_counts, x='Battery Code', y='Usage Count', title='Battery Usage Counts')
-    graphJSON_usage_counts = json.dumps(fig_usage_counts, cls=plotly.utils.PlotlyJSONEncoder)
-    graphs.append(graphJSON_usage_counts)
 
-    # Graph 2: Average Current Usage per Battery
-    avg_current_usage = (
-        df[df['Current Usage (J)'].notnull()]
-        .groupby('Battery Code')
-        .mean(numeric_only=True)
-        .reset_index()
-    )
-    fig_avg_current = px.bar(avg_current_usage, x='Battery Code', y='Current Usage (J)',
-                             title='Average Current Usage per Battery')
-    graphJSON_avg_current = json.dumps(fig_avg_current, cls=plotly.utils.PlotlyJSONEncoder)
-    graphs.append(graphJSON_avg_current)
 
-    # Graph 3: Battery Feel Distribution
-    battery_feel_counts = df['Battery Feel'].value_counts().reset_index()
-    battery_feel_counts.columns = ['Battery Feel', 'Count']
-    fig_battery_feel = px.pie(battery_feel_counts, names='Battery Feel', values='Count',
-                              title='Battery Feel Distribution')
-    graphJSON_battery_feel = json.dumps(fig_battery_feel, cls=plotly.utils.PlotlyJSONEncoder)
-    graphs.append(graphJSON_battery_feel)
-
-    # Graph 4: Charged mAh Over Time for All Batteries
     charged_data = df[df['Charged mAh'].notnull()]
     fig_charged = px.line(charged_data, x='Timestamp', y='Charged mAh', color='Battery Code',
                           title='Charged mAh Over Time')
