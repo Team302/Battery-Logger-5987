@@ -767,14 +767,14 @@ def add_battery():
 
     # Initialize battery number as a string with leading zeros
     number = 1
-    battery_number = f"{number:03d}"  # Format number as "0001"
-    battery_code = f"{current_year}{battery_number}"
+    battery_number = f"{number:04d}"  # Format number as "0001"
+    battery_code = f"{TEAM_NUMBER}{current_year}{battery_number}"
 
     # Increment battery number if code already exists
     while battery_code in battery_status:
         number += 1
-        battery_number = f"{number:03d}"  # Format number with leading zeros
-        battery_code = f"{current_year}{battery_number}"
+        battery_number = f"{number:04d}"  # Format number with leading zeros
+        battery_code = f"{TEAM_NUMBER}{current_year}{battery_number}"
 
     # Add the new battery to `battery_status`
     battery_status[battery_code] = {
