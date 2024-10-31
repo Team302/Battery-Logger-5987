@@ -8,6 +8,9 @@ from flask import Flask, render_template, redirect, url_for, request, flash, jso
 import json
 import os
 import pygame
+import pandas as pd
+import plotly
+import plotly.express as px
 
 pygame.mixer.init()
 cap = cv2.VideoCapture(0)
@@ -39,19 +42,19 @@ SETTINGS_FILE = 'settings.json'
 
 # Initialize the CSV file and write headers if it doesn’t exist
 def initialize_csv():
-    with open('battery_log.csv', mode='a', newline='') as file:
-        writer = csv.writer(file)
-        if file.tell() == 0:  # Check if file is empty
+    if not os.path.exists('battery_log.csv'):
+        with open('battery_log.csv', mode='w', newline='') as file:
+            writer = csv.writer(file)
             writer.writerow([
-                "Timestamp",
-                "Battery Code",
-                "Team Number",
-                "Purchase Year",
-                "Battery Number",
-                "Status",
-                "Current Usage (A)",
-                "Battery Feel",
-                "Charged mAh"
+                'Timestamp',
+                'Battery Code',
+                'Team Number',
+                'Purchase Year',
+                'Battery Number',
+                'Status',
+                'Current Usage (J)',
+                'Battery Feel',
+                'Charged mAh'
             ])
 
 
@@ -74,14 +77,16 @@ def log_to_csv(barcode_data, battery_info, status):
     with open('battery_log.csv', mode='a', newline='') as file:
         writer = csv.writer(file)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(battery_info)
         writer.writerow([
             timestamp,
             barcode_data,
+            battery_info.get('team_number', ''),
+            battery_info.get('purchase_year', ''),
+            battery_info.get('battery_number', ''),
             status,
-            battery_status[barcode_data].get('current_usage', ''),
-            battery_status[barcode_data].get('battery_feel', ''),
-            battery_status[barcode_data].get('charged_mAh', '')
+            battery_info.get('current_usage', ''),
+            battery_info.get('battery_feel', ''),
+            battery_info.get('charged_mAh', '')
         ])
 
 
@@ -96,11 +101,12 @@ def update_battery_status(barcode_data, new_status):
     if battery_status[barcode_data]['status'] == "In Use":
         battery_status[barcode_data]['usage_count'] += 1
 
-    # Only set awaiting_advanced_input to True if advanced logging is enabled
+    # Set the awaiting_advanced_input flag based on the new status
     if ADVANCED_LOGGING and new_status in ["In Use", "Charging"]:
         battery_status[barcode_data]['awaiting_advanced_input'] = True
-    # Do not reset awaiting_advanced_input to False here
-    # Let it remain True until data is submitted
+    else:
+        # Reset the flag if the status is not "In Use" or "Charging"
+        battery_status[barcode_data]['awaiting_advanced_input'] = False
 
 
 def calculate_average_usage():
@@ -195,7 +201,8 @@ def scan_barcode():
                 # Determine the next status based on current status
                 new_status = get_next_status(barcode_data, current_status)
                 if new_status:
-                    log_to_csv(barcode_data, battery_info, new_status)
+                    if not ADVANCED_LOGGING:
+                        log_to_csv(barcode_data, battery_info, new_status)
                     update_battery_status(barcode_data, new_status)
                     pygame.mixer.music.load("beep.wav")
                     pygame.mixer.music.play()
@@ -295,6 +302,142 @@ def index():
     return render_template('index.html', batteries=battery_info, format_battery_code=format_battery_code)
 
 
+@app.route('/statistics')
+def statistics():
+    # Load the battery log data
+    df = pd.read_csv('battery_log.csv')
+
+    if df.empty:
+        flash("No data available for statistics.", "warning")
+        return redirect(url_for('index'))
+
+    # Convert 'Timestamp' to datetime
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+
+    # Generate graphs
+    graphs = []
+
+    # Graph 1: Total Battery Usage Counts
+    usage_counts = df[df['Status'] == 'In Use'].groupby('Battery Code').count()['Timestamp'].reset_index()
+    usage_counts.rename(columns={'Timestamp': 'Usage Count'}, inplace=True)
+    fig_usage_counts = px.bar(usage_counts, x='Battery Code', y='Usage Count', title='Battery Usage Counts')
+    graphJSON_usage_counts = json.dumps(fig_usage_counts, cls=plotly.utils.PlotlyJSONEncoder)
+    graphs.append(graphJSON_usage_counts)
+
+    # Graph 2: Average Current Usage per Battery
+    avg_current_usage = (
+        df[df['Current Usage (J)'].notnull()]
+        .groupby('Battery Code')
+        .mean(numeric_only=True)
+        .reset_index()
+    )
+    fig_avg_current = px.bar(avg_current_usage, x='Battery Code', y='Current Usage (J)',
+                             title='Average Current Usage per Battery')
+    graphJSON_avg_current = json.dumps(fig_avg_current, cls=plotly.utils.PlotlyJSONEncoder)
+    graphs.append(graphJSON_avg_current)
+
+    # Graph 3: Battery Feel Distribution
+    battery_feel_counts = df['Battery Feel'].value_counts().reset_index()
+    battery_feel_counts.columns = ['Battery Feel', 'Count']
+    fig_battery_feel = px.pie(battery_feel_counts, names='Battery Feel', values='Count',
+                              title='Battery Feel Distribution')
+    graphJSON_battery_feel = json.dumps(fig_battery_feel, cls=plotly.utils.PlotlyJSONEncoder)
+    graphs.append(graphJSON_battery_feel)
+
+    # Graph 4: Charged mAh Over Time for All Batteries
+    charged_data = df[df['Charged mAh'].notnull()]
+    fig_charged = px.line(charged_data, x='Timestamp', y='Charged mAh', color='Battery Code',
+                          title='Charged mAh Over Time')
+    graphJSON_charged = json.dumps(fig_charged, cls=plotly.utils.PlotlyJSONEncoder)
+    graphs.append(graphJSON_charged)
+
+    charge_used = df[df['Current Usage (J)'].notnull()]
+    fig_charged_used = px.line(charge_used, x='Timestamp', y='Current Usage (J)', color='Battery Code',
+                               title='Current Usage (J) Over Time')
+    graphJSON_charged_used = json.dumps(fig_charged_used, cls=plotly.utils.PlotlyJSONEncoder)
+    graphs.append(graphJSON_charged_used)
+
+    # Render the template with the graphs
+    return render_template('statistics.html', graphs=graphs, advanced_logging=ADVANCED_LOGGING)
+
+
+
+@app.route('/battery_statistics/<battery_code>')
+def battery_statistics(battery_code):
+    # Load the battery log data
+    df = pd.read_csv('battery_log.csv')
+    df['Battery Code'] = df['Battery Code'].astype(str)
+
+    # Filter data for the specific battery
+    battery_df = df[df['Battery Code'] == battery_code]
+
+    print("Unique Battery Codes in DataFrame:")
+    print(df['Battery Code'].unique())
+    if battery_df.empty:
+        flash(f"No data available for battery {battery_code}.", "warning")
+        return redirect(url_for('index'))
+
+    # Convert 'Timestamp' to datetime if not already
+    battery_df['Timestamp'] = pd.to_datetime(battery_df['Timestamp'])
+
+    # Generate graphs
+    graphs = []
+
+    # Example Graph 1: Battery Usage Over Time
+    usage_over_time = battery_df[battery_df['Status'] == 'In Use']
+    usage_over_time['Timestamp'] = pd.to_datetime(usage_over_time['Timestamp'], errors='coerce')
+    usage_over_time['Current Usage (J)'] = pd.to_numeric(usage_over_time['Current Usage (J)'], errors='coerce')
+    usage_over_time = usage_over_time.dropna(subset=['Timestamp', 'Current Usage (J)'])
+    fig_charged = px.line(
+        usage_over_time,
+        x='Timestamp',
+        y='Current Usage (J)',
+        title='Current Usage (J) Over Time',
+        markers=True,
+        color=None,
+        line_group=None
+    )
+    graphJSON_usage = json.dumps(fig_charged, cls=plotly.utils.PlotlyJSONEncoder)
+    graphs.append(graphJSON_usage)
+
+    # Example Graph 2: Charged mAh Over Time
+    charged_over_time = battery_df[battery_df['Status'] == 'Charging']
+    print(f"Number of data points: {len(charged_over_time)}")
+    charged_over_time['Timestamp'] = pd.to_datetime(charged_over_time['Timestamp'], errors='coerce')
+    charged_over_time['Charged mAh'] = pd.to_numeric(charged_over_time['Charged mAh'], errors='coerce')
+    charged_over_time = charged_over_time.dropna(subset=['Timestamp', 'Charged mAh'])
+
+    fig_charged = px.line(
+        charged_over_time,
+        x='Timestamp',
+        y='Charged mAh',
+        title='Charged mAh Over Time',
+        markers=True,
+        color=None,
+        line_group=None
+    )
+    graphJSON_charged = json.dumps(fig_charged, cls=plotly.utils.PlotlyJSONEncoder)
+    graphs.append(graphJSON_charged)
+
+    # Example Graph 3: Battery Feel Ratings Over Time
+    battery_feel_data = battery_df[battery_df['Battery Feel'].notnull()]
+    fig_feel = px.line(
+        battery_feel_data,
+        x='Timestamp',
+        y='Battery Feel',
+        title='Battery Feel Over Time',
+        markers=True,
+        color=None,
+        line_group=None
+    )
+    graphJSON_feel = json.dumps(fig_feel, cls=plotly.utils.PlotlyJSONEncoder)
+    graphs.append(graphJSON_feel)
+
+    # Render the template with the graphs
+    return render_template('battery_statistics.html', battery_code=battery_code, graphs=graphs,
+                           format_battery_code=format_battery_code)
+
+
 def load_settings():
     global COOLDOWN_DURATION_TIME
     global TEAM_NUMBER
@@ -325,6 +468,7 @@ def save_settings():
 
 @app.route('/api/advanced_logging_input', methods=['POST'])
 def advanced_logging_input():
+    print("Advanced logging input received")
     data = request.json
     battery_code = data.get('battery_code')
     with battery_status_lock:
@@ -343,7 +487,7 @@ def advanced_logging_input():
 
             # Optionally, log this data to CSV
             log_to_csv(battery_code, battery_status[battery_code], battery_status[battery_code]['status'])
-
+            print("LOGGED AT " + str(time.time()))
             return jsonify({'success': True})
         else:
             return jsonify({'success': False, 'message': 'Battery not found.'}), 404
@@ -394,7 +538,8 @@ def manual_entry():
             # Determine the next status based on current status
             new_status = get_next_status(battery_code, current_status)
             if new_status:
-                log_to_csv(battery_code, battery_info, new_status)
+                if not ADVANCED_LOGGING:
+                    log_to_csv(battery_code, battery_info, new_status)
                 update_battery_status(battery_code, new_status)
                 flash(f"Battery {battery_code} status updated to {new_status}.", 'success')
             else:

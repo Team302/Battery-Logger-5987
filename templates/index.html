@@ -77,6 +77,14 @@
 
 
 
+
+
+
+
+
+
+
+
     </style>
 </head>
 <body>
@@ -125,11 +133,22 @@
     {% endwith %}
     <!-- Settings Button and Add Battery Button -->
     <div class="text-end my-3">
-        <a href="{{ url_for('settings') }}" class="btn btn-secondary">Settings</a>
-        <button id="add-battery-button" class="btn btn-primary">Add Battery</button>
-        <a href="{{ url_for('logs') }}" class="btn btn-primary">View Logs</a>
+        <a href="{{ url_for('settings') }}" class="btn btn-secondary me-2">
+            Settings
+        </a>
+        <a href="{{ url_for('statistics') }}" class="btn btn-primary me-2">
+            Statistics
+        </a>
+        <a href="{{ url_for('logs') }}" class="btn btn-primary me-2">
+            View Logs
+        </a>
+        <button id="add-battery-button" class="btn btn-primary me-2">
+            Add Battery
+        </button>
         <form action="{{ url_for('stop_system') }}" method="post" style="display:inline;">
-            <button type="submit" class="btn btn-danger">Stop</button>
+            <button type="submit" class="btn btn-danger">
+                Stop
+            </button>
         </form>
     </div>
 
@@ -156,9 +175,16 @@
                 <td>{{ battery.last_change }}</td>
                 <td>
                     <!-- Edit Button -->
-                    <button class="btn btn-sm btn-primary edit-button" data-battery-code="{{ battery.battery_code }}"
-                            data-bs-toggle="modal" data-bs-target="#editModal">
-                        Edit
+                    <!--                    <button class="btn btn-sm btn-primary edit-button" data-battery-code="{{ battery.battery_code }}"-->
+                    <!--                            data-bs-toggle="modal" data-bs-target="#editModal">-->
+                    <!--                        Edit-->
+                    <!--                    </button>-->
+                    <a class="nav-link" href="{{ url_for('statistics') }}">Statistics</a>
+                    <!-- Statistics Button -->
+                    <button type="button"
+                            onclick="window.location.href='{{ url_for('battery_statistics', battery_code=battery.battery_code) }}';"
+                            class="btn btn-sm btn-info">
+                        Statistics
                     </button>
                 </td>
             </tr>
@@ -320,7 +346,7 @@
         if (status === 'In Use') {
             advancedLoggingFields.innerHTML = `
                 <div class="mb-3">
-                    <label for="currentUsageInput" class="form-label">Current Usage (A)</label>
+                    <label for="currentUsageInput" class="form-label">Current Usage (J)</label>
                     <input type="number" step="0.01" class="form-control" id="currentUsageInput" name="current_usage" required>
                 </div>
                 <div class="mb-3">
@@ -356,46 +382,6 @@
             isModalOpen = false;
         }, { once: true }); // Use { once: true } to ensure the handler is removed after execution
     }
-    document.addEventListener('DOMContentLoaded', function() {
-        const advancedLoggingForm = document.getElementById('advancedLoggingForm');
-
-        advancedLoggingForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            // Retrieve battery code from data attribute
-            const batteryCode = advancedLoggingForm.dataset.batteryCode;
-
-            const formData = new FormData(advancedLoggingForm);
-            const data = Object.fromEntries(formData.entries());
-
-            data['battery_code'] = batteryCode;
-
-            fetch('/api/advanced_logging_input', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    // Remove the battery from promptedBatteries
-                    promptedBatteries.delete(batteryCode);
-
-                    // Hide the modal and reset the flag
-                    const modalElement = document.getElementById('advancedLoggingModal');
-                    const modal = bootstrap.Modal.getInstance(modalElement);
-                    modal.hide();
-                    isModalOpen = false;
-
-                    // Optionally refresh battery status
-                    fetchBatteryStatus();
-                } else {
-                    alert('Error saving data: ' + result.message);
-                }
-            })
-            .catch(error => console.error('Error submitting advanced logging data:', error));
-        });
-    });
 
     function checkForAdvancedLogging() {
         fetch('/api/status_changes')
@@ -575,18 +561,22 @@
                     }
 
                     row.innerHTML = `
-                        <td>${formatBatteryCode(battery.battery_code)}</td>
-                        <td>${statusIcon}</td>
-                        <td>${battery.notes}</td>
-                        <td>${battery.display_time}</td>
-                        <td>${battery.last_change}</td>
-                        <td>
-                            <!-- Edit Button -->
-                            <button class="btn btn-sm btn-primary edit-button" data-battery-code="${battery.battery_code}" data-bs-toggle="modal" data-bs-target="#editModal">
-                                Edit
-                            </button>
-                        </td>
-                    `;
+                    <td>${formatBatteryCode(battery.battery_code)}</td>
+                    <td>${statusIcon}</td>
+                    <td>${battery.notes}</td>
+                    <td>${battery.display_time}</td>
+                    <td>${battery.last_change}</td>
+                    <td>
+                        <!-- Edit Button -->
+                        <button class="btn btn-sm btn-primary edit-button" data-battery-code="${battery.battery_code}" data-bs-toggle="modal" data-bs-target="#editModal">
+                            Edit
+                        </button>
+                        <!-- Statistics Button -->
+                        <a href="/battery_statistics/${battery.battery_code}" class="btn btn-sm btn-info">
+                            Statistics
+                        </a>
+                    </td>
+                `;
                     tableBody.appendChild(row);
                 });
 
@@ -740,6 +730,14 @@
 
     // Call the function to attach listeners
     attachEditButtonListeners();
+
+
+
+
+
+
+
+
 
 
 
