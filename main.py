@@ -513,11 +513,11 @@ def settings():
         # Retrieve and apply settings
         try:
             COOLDOWN_DURATION_TIME = int(request.form.get('cooldown_time', COOLDOWN_DURATION_TIME))
-            TEAM_NUMBER = int(request.form.get('team_number', TEAM_NUMBER))
+            TEAM_NUMBER = request.form.get('team_number', TEAM_NUMBER)
             flash("Settings have been updated.", "success")
         except:
             try:
-                TEAM_NUMBER = int(request.form.get('team_number', TEAM_NUMBER))
+                TEAM_NUMBER = request.form.get('team_number', TEAM_NUMBER)
                 flash("Settings have been updated (ONLY TEAM NUMBER)", "success")
             except:
                 try:
