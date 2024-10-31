@@ -509,24 +509,39 @@ def generate_frames():
 def settings():
     global COOLDOWN_DURATION_TIME
     global TEAM_NUMBER
+    global ADVANCED_LOGGING
+
     if request.method == 'POST':
         # Retrieve and apply settings
         try:
             COOLDOWN_DURATION_TIME = int(request.form.get('cooldown_time', COOLDOWN_DURATION_TIME))
             TEAM_NUMBER = request.form.get('team_number', TEAM_NUMBER)
             flash("Settings have been updated.", "success")
+            save_settings()  # Save settings to JSON file
         except:
             try:
                 TEAM_NUMBER = request.form.get('team_number', TEAM_NUMBER)
                 flash("Settings have been updated (ONLY TEAM NUMBER)", "success")
+                save_settings()  # Save settings to JSON file
+
             except:
                 try:
                     COOLDOWN_DURATION_TIME = int(request.form.get('cooldown_time', COOLDOWN_DURATION_TIME))
-                    flash("Settings have been updated (ONLY COOLDOWN)", "success")
+                    flash("Settings have been updated (ONLY COOLDOWN )", "success")
+                    save_settings()  # Save settings to JSON file
                 except:
-                    flash("Settings have NOT been updated.", "warning")
+                    try:
+                        ADVANCED_LOGGING = 'advanced_logging' in request.form
+                        flash("Settings have been updated (ONLY Advanced Logging toggle)", "success")
+                        save_settings()  # Save settings to JSON file
+                    except:
+                        flash("Settings have NOT been updated.", "warning")
+                        save_settings()  # Save settings to JSON file
 
-    return render_template('settings.html')
+    return render_template('settings.html',
+                           advanced_logging=ADVANCED_LOGGING,
+                           cooldown_time=COOLDOWN_DURATION_TIME,
+                           team_number=TEAM_NUMBER)
 
 
 @app.route('/add_battery', methods=['POST'])
