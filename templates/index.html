@@ -335,7 +335,7 @@
             return;
         }
 
-        advModalBatteryCode.textContent = formatBatteryCode(batteryCode);
+        advModalBatteryCode.textContent = batteryCode;
 
         // Set the battery code on the form
         advancedLoggingForm.dataset.batteryCode = batteryCode;
@@ -407,7 +407,7 @@
     function promptCurrentUsage(batteryCode) {
         // Create a modal or prompt
         // For simplicity, we'll use prompt() here, but you should create a proper modal
-        let currentUsage = prompt(`Enter current usage for battery ${formatBatteryCode(batteryCode)} (in A):`);
+        let currentUsage = prompt(`Enter current usage for battery ${batteryCode} (in A):`);
         let batteryFeel = prompt(`How did the battery feel? Enter a number from 0 (worst) to 4 (best):`);
 
         // Send the data to the server
@@ -432,7 +432,7 @@
 
     // Function to prompt for charged mAh
     function promptChargedmAh(batteryCode) {
-        let chargedmAh = prompt(`Enter charged mAh for battery ${formatBatteryCode(batteryCode)}:`);
+        let chargedmAh = prompt(`Enter charged mAh for battery ${batteryCode}:`);
 
         // Send the data to the server
         fetch('/api/advanced_logging_input', {
@@ -508,10 +508,6 @@
     document.addEventListener("mouseup", () => {
         isDragging = false;
     });
-    function formatBatteryCode(code) {
-        // Format battery code as TEAM-YEAR-NUMB
-        return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
-    }
 
     function fetchBatteryStatus() {
         fetch('/api/battery_status')
@@ -561,7 +557,7 @@
                     }
 
                     row.innerHTML = `
-                    <td>${formatBatteryCode(battery.battery_code)}</td>
+                    <td>${battery.battery_code}</td>
                     <td>${statusIcon}</td>
                     <td>${battery.notes}</td>
                     <td>${battery.display_time}</td>
@@ -666,7 +662,7 @@
                 if (data.length > 0) {
                     data.forEach(battery_code => {
                         // Show a confirmation dialog for each pending battery
-                        if (confirm(`Battery ${formatBatteryCode(battery_code)} is not in the system. Do you want to add it?`)) {
+                        if (confirm(`Battery ${battery_code} is not in the system. Do you want to add it?`)) {
                             // Send a request to add the battery
                             fetch('/api/confirm_add_battery', {
                                 method: 'POST',
