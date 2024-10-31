@@ -27,10 +27,14 @@ battery_status_lock = threading.Lock()
 
 COOLDOWN_DURATION_TIME = 600  # seconds
 
+ADVANCED_LOGGING = True  # Default is on
+
 # Battery status tracking dictionary
 battery_status = {}
 # List to keep track of pending batteries that are scanned but not in the system
 pending_batteries = []
+
+SETTINGS_FILE = 'settings.json'
 
 
 # Initialize the CSV file and write headers if it doesn’t exist
@@ -44,7 +48,10 @@ def initialize_csv():
                 "Team Number",
                 "Purchase Year",
                 "Battery Number",
-                "Status"
+                "Status",
+                "Current Usage (A)",
+                "Battery Feel",
+                "Charged mAh"
             ])
 
 
@@ -67,29 +74,35 @@ def log_to_csv(barcode_data, battery_info, status):
     with open('battery_log.csv', mode='a', newline='') as file:
         writer = csv.writer(file)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(battery_info)
         writer.writerow([
             timestamp,
             barcode_data,
-            battery_info['team_number'],
-            battery_info['purchase_year'],
-            battery_info['battery_number'],
-            status
+            status,
+            battery_status[barcode_data].get('current_usage', ''),
+            battery_status[barcode_data].get('battery_feel', ''),
+            battery_status[barcode_data].get('charged_mAh', '')
         ])
 
 
 # Update battery status with timestamp
 def update_battery_status(barcode_data, new_status):
-    battery_status[barcode_data] = {
-        'status': new_status,
-        'display_time': timedelta(0),
-        'last_change': datetime.now(),
-        'notes': battery_status[barcode_data]['notes'],
-        'usage_count': battery_status[barcode_data]['usage_count']
-    }
+    battery_status[barcode_data]['status'] = new_status
+    battery_status[barcode_data]['display_time'] = timedelta(0)
+    battery_status[barcode_data]['last_change'] = datetime.now()
+    battery_status[barcode_data]['notes'] = battery_status[barcode_data].get('notes', '')
+    battery_status[barcode_data]['usage_count'] = battery_status[barcode_data].get('usage_count', 0)
+
     if battery_status[barcode_data]['status'] == "In Use":
         battery_status[barcode_data]['usage_count'] += 1
-    print(
-        f"[update_battery_status] Battery {barcode_data} status updated to {new_status} at {battery_status[barcode_data]['last_change']}")
+
+    # Only set awaiting_advanced_input to True if advanced logging is enabled
+    if ADVANCED_LOGGING and new_status in ["In Use", "Charging"]:
+        battery_status[barcode_data]['awaiting_advanced_input'] = True
+    # Do not reset awaiting_advanced_input to False here
+    # Let it remain True until data is submitted
+
+
 def calculate_average_usage():
     with battery_status_lock:
         total_usage = sum(battery['usage_count'] for battery in battery_status.values())
@@ -98,6 +111,8 @@ def calculate_average_usage():
             return 0
         average_usage = total_usage / battery_count
         return average_usage
+
+
 def identify_usage_outliers():
     average_usage = calculate_average_usage()
     overused_batteries = []
@@ -112,6 +127,8 @@ def identify_usage_outliers():
                 underused_batteries.append(code)
 
     return overused_batteries, underused_batteries
+
+
 def can_change_status(barcode_data, new_status):
     with battery_status_lock:
         if barcode_data in battery_status:
@@ -278,6 +295,77 @@ def index():
     return render_template('index.html', batteries=battery_info, format_battery_code=format_battery_code)
 
 
+def load_settings():
+    global COOLDOWN_DURATION_TIME
+    global TEAM_NUMBER
+    global ADVANCED_LOGGING
+    try:
+        with open(SETTINGS_FILE, 'r') as f:
+            settings = json.load(f)
+            COOLDOWN_DURATION_TIME = settings.get('cooldown_duration_time', COOLDOWN_DURATION_TIME)
+            TEAM_NUMBER = settings.get('team_number', TEAM_NUMBER)
+            ADVANCED_LOGGING = settings.get('advanced_logging', ADVANCED_LOGGING)
+    except FileNotFoundError:
+        # Settings file does not exist, keep default settings
+        pass
+    except json.JSONDecodeError:
+        # Settings file is corrupt or invalid, handle as needed
+        pass
+
+
+def save_settings():
+    settings = {
+        'cooldown_duration_time': COOLDOWN_DURATION_TIME,
+        'team_number': TEAM_NUMBER,
+        'advanced_logging': ADVANCED_LOGGING
+    }
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(settings, f)
+
+
+@app.route('/api/advanced_logging_input', methods=['POST'])
+def advanced_logging_input():
+    data = request.json
+    battery_code = data.get('battery_code')
+    with battery_status_lock:
+        if battery_code in battery_status:
+            # Save the data without checking awaiting_advanced_input
+            if 'current_usage' in data and 'battery_feel' in data:
+                battery_status[battery_code]['current_usage'] = data['current_usage']
+                battery_status[battery_code]['battery_feel'] = data['battery_feel']
+            elif 'charged_mAh' in data:
+                battery_status[battery_code]['charged_mAh'] = data['charged_mAh']
+            else:
+                return jsonify({'success': False, 'message': 'Invalid data provided.'}), 400
+
+            # Remove the awaiting_advanced_input flag
+            battery_status[battery_code]['awaiting_advanced_input'] = False
+
+            # Optionally, log this data to CSV
+            log_to_csv(battery_code, battery_status[battery_code], battery_status[battery_code]['status'])
+
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'message': 'Battery not found.'}), 404
+
+
+@app.route('/api/status_changes')
+def status_changes():
+    with battery_status_lock:
+        # Return batteries that have changed status and require advanced logging input
+        if ADVANCED_LOGGING:
+            changes = []
+            for code, data in battery_status.items():
+                if data.get('awaiting_advanced_input', False):
+                    changes.append({
+                        'battery_code': code,
+                        'status': data['status']
+                    })
+            return jsonify(changes)
+        else:
+            return jsonify([])
+
+
 # Flask route for manual battery code entry
 @app.route('/manual_entry', methods=['POST'])
 def manual_entry():
@@ -386,7 +474,10 @@ def confirm_add_battery():
             'last_change': datetime.now(),
             'display_time': timedelta(0),
             'usage_count': 0,  # Initialize usage count
-            'notes': ''  # If you have notes
+            'notes': '',  # If you have notes
+            'current_usage': None,  # Add this line
+            'battery_feel': None,  # Add this line
+            'charged_mAh': None  # Add this line
         }
 
         # Optionally, log this action
@@ -421,7 +512,10 @@ def api_confirm_add_battery():
             'last_change': datetime.now(),
             'display_time': timedelta(0),
             'usage_count': 0,  # Initialize usage count
-            'notes': ''  # If you have notes
+            'notes': '',  # If you have notes
+            'current_usage': None,  # Add this line
+            'battery_feel': None,  # Add this line
+            'charged_mAh': None  # Add this line  # If you have notes
         }
 
         # Remove from pending batteries
@@ -516,6 +610,7 @@ def settings():
         try:
             COOLDOWN_DURATION_TIME = int(request.form.get('cooldown_time', COOLDOWN_DURATION_TIME))
             TEAM_NUMBER = request.form.get('team_number', TEAM_NUMBER)
+            ADVANCED_LOGGING = 'advanced_logging' in request.form
             flash("Settings have been updated.", "success")
             save_settings()  # Save settings to JSON file
         except:
@@ -568,7 +663,10 @@ def add_battery():
         'last_change': datetime.now(),
         'display_time': timedelta(0),
         'usage_count': 0,  # Initialize usage count
-        'notes': ''  # If you have notes
+        'notes': '',  # If you have notes
+        'current_usage': None,  # Add this line
+        'battery_feel': None,  # Add this line
+        'charged_mAh': None  # Add this line  # If you have notes
     }
 
     # Return a JSON response
@@ -616,7 +714,11 @@ def save_battery_status():
                 'status': data['status'],
                 'last_change': data['last_change'].strftime("%Y-%m-%d %H:%M:%S"),
                 'usage_count': data.get('usage_count', 0),
-                'notes': data.get('notes', '')
+                'notes': data.get('notes', ''),
+                'current_usage': data.get('current_usage'),
+                'battery_feel': data.get('battery_feel'),
+                'charged_mAh': data.get('charged_mAh'),
+                'awaiting_advanced_input': data.get('awaiting_advanced_input', False)
             }
             for code, data in battery_status.items()
         }
@@ -633,12 +735,18 @@ def load_initial_battery_status():
                     'last_change': datetime.strptime(data['last_change'], "%Y-%m-%d %H:%M:%S"),
                     'display_time': timedelta(0),
                     'usage_count': data.get('usage_count', 0),
-                    'notes': data.get('notes', '')
+                    'notes': data.get('notes', ''),
+                    'current_usage': data.get('current_usage'),
+                    'battery_feel': data.get('battery_feel'),
+                    'charged_mAh': data.get('charged_mAh'),
+                    'awaiting_advanced_input': data.get('awaiting_advanced_input', False)
                 }
 
 
 # Start the Flask app and background tasks
 if __name__ == "__main__":
+    # Load settings from file
+    load_settings()
     # Load initial battery status from persistent file
     load_initial_battery_status()
 
@@ -658,3 +766,4 @@ if __name__ == "__main__":
     finally:
         # Save battery status to persistent file on exit
         save_battery_status()
+        save_settings()

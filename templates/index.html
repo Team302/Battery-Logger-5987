@@ -73,6 +73,10 @@
 
 
 
+
+
+
+
     </style>
 </head>
 <body>
@@ -208,9 +212,260 @@
             </div>
         </div>
     </div>
+
+    <!-- Advanced Logging Modal -->
+    <div class="modal fade" id="advancedLoggingModal" tabindex="-1" aria-labelledby="advancedLoggingModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="advancedLoggingForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="advancedLoggingModalLabel">
+                            Advanced Logging for Battery <span id="advModalBatteryCode"></span>
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Dynamic content based on battery status -->
+                        <div id="advancedLoggingFields"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Save Data</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Skip</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
+    const promptedBatteries = new Set();
+    let isModalOpen = false; // Flag to track if the modal is currently open
+    const advancedLoggingForm = document.getElementById('advancedLoggingForm');
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const advancedLoggingForm = document.getElementById('advancedLoggingForm');
+
+        advancedLoggingForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Retrieve battery code from data attribute
+            const batteryCode = advancedLoggingForm.dataset.batteryCode;
+
+            const formData = new FormData(advancedLoggingForm);
+            const data = Object.fromEntries(formData.entries());
+
+            data['battery_code'] = batteryCode;
+
+            // Convert numerical values to appropriate types
+            if (data['current_usage']) {
+                data['current_usage'] = parseFloat(data['current_usage']);
+            }
+            if (data['battery_feel']) {
+                data['battery_feel'] = parseInt(data['battery_feel'], 10);
+            }
+            if (data['charged_mAh']) {
+                data['charged_mAh'] = parseInt(data['charged_mAh'], 10);
+            }
+
+            fetch('/api/advanced_logging_input', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // Remove the battery from promptedBatteries
+                    promptedBatteries.delete(batteryCode);
+
+                    // Hide the modal and reset the flag
+                    const modalElement = document.getElementById('advancedLoggingModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                    isModalOpen = false;
+
+                    // Optionally refresh battery status
+                    fetchBatteryStatus();
+                } else {
+                    alert('Error saving data: ' + result.message);
+                }
+            })
+            .catch(error => console.error('Error submitting advanced logging data:', error));
+        });
+    });
+    function promptAdvancedLogging(batteryCode, status) {
+        const modalElement = document.getElementById('advancedLoggingModal');
+        const modal = new bootstrap.Modal(modalElement);
+
+        const advModalBatteryCode = document.getElementById('advModalBatteryCode');
+        const advancedLoggingFields = document.getElementById('advancedLoggingFields');
+        const advancedLoggingForm = document.getElementById('advancedLoggingForm');
+
+        // Check if elements are found
+        if (!advModalBatteryCode || !advancedLoggingFields || !advancedLoggingForm) {
+            console.error('Modal elements not found in the DOM.');
+            return;
+        }
+
+        advModalBatteryCode.textContent = formatBatteryCode(batteryCode);
+
+        // Set the battery code on the form
+        advancedLoggingForm.dataset.batteryCode = batteryCode;
+
+        // Clear previous fields
+        advancedLoggingFields.innerHTML = '';
+
+        if (status === 'In Use') {
+            advancedLoggingFields.innerHTML = `
+                <div class="mb-3">
+                    <label for="currentUsageInput" class="form-label">Current Usage (A)</label>
+                    <input type="number" step="0.01" class="form-control" id="currentUsageInput" name="current_usage" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Battery Feel</label>
+                    <div class="d-flex justify-content-between">
+                        <!-- Images representing battery feel -->
+                        ${[0,1,2,3,4].map(i => `
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="battery_feel" id="feel${i}" value="${i}" required>
+                                <label class="form-check-label" for="feel${i}">
+                                    <img src="/static/images/feel${i}.png" alt="${i} Bars" width="50">
+                                </label>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else if (status === 'Charging') {
+            advancedLoggingFields.innerHTML = `
+                <div class="mb-3">
+                    <label for="chargedmAhInput" class="form-label">Charged mAh</label>
+                    <input type="number" class="form-control" id="chargedmAhInput" name="charged_mAh" required>
+                </div>
+            `;
+        }
+
+        // Show the modal and set the flag
+        modal.show();
+        isModalOpen = true;
+
+        // Handle modal close event to reset the flag
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            isModalOpen = false;
+        }, { once: true }); // Use { once: true } to ensure the handler is removed after execution
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        const advancedLoggingForm = document.getElementById('advancedLoggingForm');
+
+        advancedLoggingForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Retrieve battery code from data attribute
+            const batteryCode = advancedLoggingForm.dataset.batteryCode;
+
+            const formData = new FormData(advancedLoggingForm);
+            const data = Object.fromEntries(formData.entries());
+
+            data['battery_code'] = batteryCode;
+
+            fetch('/api/advanced_logging_input', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // Remove the battery from promptedBatteries
+                    promptedBatteries.delete(batteryCode);
+
+                    // Hide the modal and reset the flag
+                    const modalElement = document.getElementById('advancedLoggingModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                    isModalOpen = false;
+
+                    // Optionally refresh battery status
+                    fetchBatteryStatus();
+                } else {
+                    alert('Error saving data: ' + result.message);
+                }
+            })
+            .catch(error => console.error('Error submitting advanced logging data:', error));
+        });
+    });
+
+    function checkForAdvancedLogging() {
+        fetch('/api/status_changes')
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(battery => {
+                    // Check if the battery has not been prompted and no modal is open
+                    if (!promptedBatteries.has(battery.battery_code) && !isModalOpen) {
+                        promptedBatteries.add(battery.battery_code);
+                        promptAdvancedLogging(battery.battery_code, battery.status);
+                    }
+                });
+            })
+            .catch(error => console.error('Error fetching status changes:', error));
+    }
+
+    // Update the interval as desired
+    setInterval(checkForAdvancedLogging, 1000);
+
+
+
+    // Function to prompt for current usage and battery feel
+    function promptCurrentUsage(batteryCode) {
+        // Create a modal or prompt
+        // For simplicity, we'll use prompt() here, but you should create a proper modal
+        let currentUsage = prompt(`Enter current usage for battery ${formatBatteryCode(batteryCode)} (in A):`);
+        let batteryFeel = prompt(`How did the battery feel? Enter a number from 0 (worst) to 4 (best):`);
+
+        // Send the data to the server
+        fetch('/api/advanced_logging_input', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                battery_code: batteryCode,
+                current_usage: currentUsage,
+                battery_feel: batteryFeel
+            })
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  alert('Advanced logging data saved.');
+                  // Remove the flag on the battery status
+              } else {
+                  alert('Error saving data: ' + data.message);
+              }
+          });
+    }
+
+    // Function to prompt for charged mAh
+    function promptChargedmAh(batteryCode) {
+        let chargedmAh = prompt(`Enter charged mAh for battery ${formatBatteryCode(batteryCode)}:`);
+
+        // Send the data to the server
+        fetch('/api/advanced_logging_input', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                battery_code: batteryCode,
+                charged_mAh: chargedmAh
+            })
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  alert('Advanced logging data saved.');
+              } else {
+                  alert('Error saving data: ' + data.message);
+              }
+          });
+    }
+
 
     document.getElementById('add-battery-button').addEventListener('click', function(event) {
         // Prevent default behavior (if necessary)
@@ -485,6 +740,10 @@
 
     // Call the function to attach listeners
     attachEditButtonListeners();
+
+
+
+
 
 
 
