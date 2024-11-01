@@ -170,49 +170,49 @@ def scan_barcode():
     scanned_barcodes = {}
     cooldown_time = 2
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to capture image")
-            break
-
-        barcodes = decode(frame)
-
-        for barcode in barcodes:
-            barcode_data = barcode.data.decode('utf-8')[:-1]  # Discard last digit
-
-            # Parse the battery code
-            try:
-                battery_info = parse_battery_code(barcode_data)
-            except Exception as e:
-                print(f"Invalid barcode format: {barcode_data}")
-                continue
-
-            with battery_status_lock:
-                if barcode_data not in battery_status:
-                    # Battery not in system, add to pending list
-                    if barcode_data not in pending_batteries:
-                        pending_batteries.append(barcode_data)
-                    continue  # Skip further processing
-
-            if barcode_data not in scanned_barcodes or time.time() - scanned_barcodes[barcode_data] > cooldown_time:
-                scanned_barcodes[barcode_data] = time.time()
-                print(f"Scanned Barcode: {barcode_data}")
-
-                with battery_status_lock:
-                    current_status = battery_status.get(barcode_data, {}).get('status', 'Charging')
-
-                # Determine the next status based on current status
-                new_status = get_next_status(barcode_data, current_status)
-                if new_status:
-                    log_to_csv(barcode_data, battery_info, new_status)
-                    update_battery_status(barcode_data, new_status)
-                    pygame.mixer.music.load("beep.wav")
-                    pygame.mixer.music.play()
-                else:
-                    print(f"Battery {barcode_data} cannot change status yet.")
-        time.sleep(0.1)
-    cap.release()
+    # while True:
+    #     ret, frame = cap.read()
+    #     if not ret:
+    #         print("Failed to capture image")
+    #         break
+    #
+    #     barcodes = decode(frame)
+    #
+    #     for barcode in barcodes:
+    #         barcode_data = barcode.data.decode('utf-8')[:-1]  # Discard last digit
+    #
+    #         # Parse the battery code
+    #         try:
+    #             battery_info = parse_battery_code(barcode_data)
+    #         except Exception as e:
+    #             print(f"Invalid barcode format: {barcode_data}")
+    #             continue
+    #
+    #         with battery_status_lock:
+    #             if barcode_data not in battery_status:
+    #                 # Battery not in system, add to pending list
+    #                 if barcode_data not in pending_batteries:
+    #                     pending_batteries.append(barcode_data)
+    #                 continue  # Skip further processing
+    #
+    #         if barcode_data not in scanned_barcodes or time.time() - scanned_barcodes[barcode_data] > cooldown_time:
+    #             scanned_barcodes[barcode_data] = time.time()
+    #             print(f"Scanned Barcode: {barcode_data}")
+    #
+    #             with battery_status_lock:
+    #                 current_status = battery_status.get(barcode_data, {}).get('status', 'Charging')
+    #
+    #             # Determine the next status based on current status
+    #             new_status = get_next_status(barcode_data, current_status)
+    #             if new_status:
+    #                 log_to_csv(barcode_data, battery_info, new_status)
+    #                 update_battery_status(barcode_data, new_status)
+    #                 pygame.mixer.music.load("beep.wav")
+    #                 pygame.mixer.music.play()
+    #             else:
+    #                 print(f"Battery {barcode_data} cannot change status yet.")
+    #     time.sleep(0.1)
+    # cap.release()
 
 
 # Background thread to auto-update cooldown statuses
