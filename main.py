@@ -175,56 +175,59 @@ def scan_barcode():
     max_retries = 5  # Number of consecutive retries before reinitializing the camera
 
     while True:
-        ret, frame = cap.read()
-        if not ret:
-            retry_count += 1
-            print(f"Warning: Can't grab frame (attempt {retry_count}). Retrying...")
-            time.sleep(0.1)  # Small delay before retrying
+        try:
+            ret, frame = cap.read()
+            if not ret:
+                retry_count += 1
+                print(f"Warning: Can't grab frame (attempt {retry_count}). Retrying...")
+                time.sleep(0.1)  # Small delay before retrying
 
-            # Reinitialize the camera if it fails too many times consecutively
-            if retry_count >= max_retries:
-                cap.release()
-                time.sleep(1)  # Small delay before reinitializing
-                cap = cv2.VideoCapture(0)
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-                retry_count = 0  # Reset retry counter
-            continue
-
-        # Reset retry count if frame read is successful
-        retry_count = 0
-
-        # Process barcodes if frame capture succeeded
-        barcodes = decode(frame)
-        for barcode in barcodes:
-            barcode_data = barcode.data.decode('utf-8')[:-1]  # Discard last digit
-            try:
-                battery_info = parse_battery_code(barcode_data)
-            except Exception as e:
-                print(f"Invalid barcode format: {barcode_data}")
+                # Reinitialize the camera if it fails too many times consecutively
+                if retry_count >= max_retries:
+                    cap.release()
+                    time.sleep(1)  # Small delay before reinitializing
+                    cap = cv2.VideoCapture(0)
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+                    retry_count = 0  # Reset retry counter
                 continue
 
-            with battery_status_lock:
-                if barcode_data not in battery_status:
-                    if barcode_data not in pending_batteries:
-                        pending_batteries.append(barcode_data)
+            # Reset retry count if frame read is successful
+            retry_count = 0
+
+            # Process barcodes if frame capture succeeded
+            barcodes = decode(frame)
+            for barcode in barcodes:
+                barcode_data = barcode.data.decode('utf-8')[:-1]  # Discard last digit
+                try:
+                    battery_info = parse_battery_code(barcode_data)
+                except Exception as e:
+                    print(f"Invalid barcode format: {barcode_data}")
                     continue
 
-            if barcode_data not in scanned_barcodes or time.time() - scanned_barcodes[barcode_data] > cooldown_time:
-                scanned_barcodes[barcode_data] = time.time()
-                print(f"Scanned Barcode: {barcode_data}")
-
                 with battery_status_lock:
-                    current_status = battery_status.get(barcode_data, {}).get('status', 'Charging')
+                    if barcode_data not in battery_status:
+                        if barcode_data not in pending_batteries:
+                            pending_batteries.append(barcode_data)
+                        continue
 
-                new_status = get_next_status(barcode_data, current_status)
-                if new_status:
-                    log_to_csv(barcode_data, battery_info, new_status)
-                    update_battery_status(barcode_data, new_status)
-                    pygame.mixer.music.load("beep.wav")
-                    pygame.mixer.music.play()
-                else:
-                    print(f"Battery {barcode_data} cannot change status yet.")
+                if barcode_data not in scanned_barcodes or time.time() - scanned_barcodes[barcode_data] > cooldown_time:
+                    scanned_barcodes[barcode_data] = time.time()
+                    print(f"Scanned Barcode: {barcode_data}")
+
+                    with battery_status_lock:
+                        current_status = battery_status.get(barcode_data, {}).get('status', 'Charging')
+
+                    new_status = get_next_status(barcode_data, current_status)
+                    if new_status:
+                        log_to_csv(barcode_data, battery_info, new_status)
+                        update_battery_status(barcode_data, new_status)
+                        pygame.mixer.music.load("beep.wav")
+                        pygame.mixer.music.play()
+                    else:
+                        print(f"Battery {barcode_data} cannot change status yet.")
+        except:
+            print("ERROR HAS BEEN IN SCAN BARCODE")
     cap.release()
 
 
