@@ -171,14 +171,28 @@ def scan_barcode():
     print("Starting barcode scanning...")
     scanned_barcodes = {}
     cooldown_time = 2
-    frame_count = 0
-    reset_interval = 100  # Reset camera after 100 frames
+    retry_count = 0
+    max_retries = 5  # Number of consecutive retries before reinitializing the camera
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("Failed to capture image")
-            break
+            retry_count += 1
+            print(f"Warning: Can't grab frame (attempt {retry_count}). Retrying...")
+            time.sleep(0.1)  # Small delay before retrying
+
+            # Reinitialize the camera if it fails too many times consecutively
+            if retry_count >= max_retries:
+                cap.release()
+                time.sleep(1)  # Small delay before reinitializing
+                cap = cv2.VideoCapture(0)
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+                retry_count = 0  # Reset retry counter
+            continue
+
+        # Reset retry count if frame read is successful
+        retry_count = 0
 
         # Process barcodes if frame capture succeeded
         barcodes = decode(frame)
@@ -211,17 +225,8 @@ def scan_barcode():
                     pygame.mixer.music.play()
                 else:
                     print(f"Battery {barcode_data} cannot change status yet.")
+    cap.release()
 
-        # Add a short delay to reduce CPU usage
-        time.sleep(0.1)
-        frame_count += 1
-
-        # Periodically reset the camera to prevent resource locking
-        if frame_count >= reset_interval:
-            cap.release()
-            time.sleep(1)
-            cap = cv2.VideoCapture(0)
-            frame_count = 0
 
 
 # Background thread to auto-update cooldown statuses
