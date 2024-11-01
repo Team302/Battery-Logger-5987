@@ -250,7 +250,7 @@ def auto_update_cooldown_statuses():
 
 def format_battery_code(code):
     # Format battery code as TEAM-YEAR-NUMB
-    return f"{code[:4]}-{code[4:8]}-{code[8:]}"
+    return f"{code[:4]}-{code[4:8]}"
 
 
 def get_next_status(barcode_data, current_status):
@@ -767,14 +767,14 @@ def add_battery():
 
     # Initialize battery number as a string with leading zeros
     number = 1
-    battery_number = f"{number:04d}"  # Format number as "0001"
-    battery_code = f"{TEAM_NUMBER}{current_year}{battery_number}"
+    battery_number = f"{number:03d}"  # Format number as "0001"
+    battery_code = f"{current_year}{battery_number}"
 
     # Increment battery number if code already exists
     while battery_code in battery_status:
         number += 1
-        battery_number = f"{number:04d}"  # Format number with leading zeros
-        battery_code = f"{TEAM_NUMBER}{current_year}{battery_number}"
+        battery_number = f"{number:03d}"  # Format number with leading zeros
+        battery_code = f"{current_year}{battery_number}"
 
     # Add the new battery to `battery_status`
     battery_status[battery_code] = {
@@ -881,7 +881,7 @@ if __name__ == "__main__":
     cooldown_thread.start()
 
     try:
-        app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+        app.run(host='0.0.0.0', port=9000, debug=False, use_reloader=False)
     finally:
         # Save battery status to persistent file on exit
         save_battery_status()
