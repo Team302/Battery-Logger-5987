@@ -432,22 +432,17 @@ def download_data():
 @app.route('/upload_data', methods=['POST'])
 def upload_data():
     uploaded_file = request.files.get('data_file')
-    print(uploaded_file and uploaded_file.filename.endswith('.zip'))
     if uploaded_file and uploaded_file.filename.endswith('.zip'):
         upload_path = os.path.join(EXPORT_FOLDER, uploaded_file.filename)
         uploaded_file.save(upload_path)
 
         # Extract the uploaded zip file to replace the data files
         zipfile.ZipFile(upload_path,'r').extractall(path='exports/batteryUnzipped')  # Extract files in the current directory or specify a path
-        print("UNZIPPED")
         # Clean up by removing the uploaded zip
-        print(upload_path)
         os.remove(upload_path)
         load_settings('exports/batteryUnzipped/settings.json')
         load_initial_battery_status('exports/batteryUnzipped/battery_status.json')
-        print(battery_status)
-        print('settings.json')
-        load_logs('exports/batteryUnzipped/battery_log.csv')
+        load_logs('exports/batteryUnzipped/battery_log.csv','battery_log.csv')
         save_settings()
         save_battery_status()
         os.remove('exports/batteryUnzipped/settings.json')
@@ -465,8 +460,6 @@ def load_settings(path):
     try:
         with open(path, 'r') as f:
             settings = json.load(f)
-            print("settings contains: " , settings)
-            print("the path is: ",path)
             COOLDOWN_DURATION_TIME = settings.get('cooldown_duration_time', COOLDOWN_DURATION_TIME)
             TEAM_NUMBER = settings.get('team_number', TEAM_NUMBER)
             ADVANCED_LOGGING = settings.get('advanced_logging', ADVANCED_LOGGING)
@@ -487,22 +480,28 @@ def save_settings():
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f)
 
-def load_logs(path=LOGS_FILE):
-    """Load log entries from the CSV log file and return as a list of dictionaries."""
-    logs = []
+def load_logs(input_file, output_file):
     try:
-        with open(path, mode='r') as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                logs.append(row)
+        with open(input_file, mode='r', newline='') as infile:
+            reader = csv.reader(infile)
+            with open(output_file, mode='w', newline='') as outfile:
+                writer = csv.writer(outfile)
+
+                # Copy each row from the input file to the output file
+                for row in reader:
+                    writer.writerow(row)
+
+        print(f"Log file '{input_file}' successfully copied to '{output_file}'")
+
     except FileNotFoundError:
-        print(f"Log file {path} not found. Returning empty list.")
-    return logs
+        print(f"Error: The file '{input_file}' does not exist.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 
 
 @app.route('/api/advanced_logging_input', methods=['POST'])
 def advanced_logging_input():
-    print("Advanced logging input received")
     data = request.json
     battery_code = data.get('battery_code')
     with battery_status_lock:
@@ -521,7 +520,6 @@ def advanced_logging_input():
 
             # Optionally, log this data to CSV
             log_to_csv(battery_code, battery_status[battery_code], battery_status[battery_code]['status'])
-            print("LOGGED AT " + str(time.time()))
             return jsonify({'success': True})
         else:
             return jsonify({'success': False, 'message': 'Battery not found.'}), 404
@@ -905,11 +903,8 @@ def save_battery_status():
 
 def load_initial_battery_status(path):
     if os.path.exists(path):
-        print("Loading Status at: ",path)
-
         with open(path, 'r') as f:
             data_loaded = json.load(f)
-            print("It contains: ",data_loaded)
             for code, data in data_loaded.items():
                 battery_status[code] = {
                     'status': data['status'],
