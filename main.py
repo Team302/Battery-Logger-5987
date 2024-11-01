@@ -1,10 +1,12 @@
+import zipfile
+
 import cv2
 import time
 import csv
 import threading
 from pyzbar.pyzbar import decode
 from datetime import datetime, timedelta
-from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response, send_file
 import json
 import os
 import pygame
@@ -39,7 +41,9 @@ pending_batteries = []
 
 SETTINGS_FILE = 'settings.json'
 
-
+LOGS_FILE = 'battery_log.csv'
+STATUS_FILE = 'battery_status.json'
+EXPORT_FOLDER = 'exports'  # Folder to temporarily store export files
 # Initialize the CSV file and write headers if it doesn’t exist
 def initialize_csv():
     if not os.path.exists('battery_log.csv'):
@@ -201,8 +205,7 @@ def scan_barcode():
                 # Determine the next status based on current status
                 new_status = get_next_status(barcode_data, current_status)
                 if new_status:
-                    if not ADVANCED_LOGGING:
-                        log_to_csv(barcode_data, battery_info, new_status)
+                    log_to_csv(barcode_data, battery_info, new_status)
                     update_battery_status(barcode_data, new_status)
                     pygame.mixer.music.load("beep.wav")
                     pygame.mixer.music.play()
@@ -411,14 +414,59 @@ def battery_statistics(battery_code):
     return render_template('battery_statistics.html', battery_code=battery_code, graphs=graphs,
                            format_battery_code=format_battery_code)
 
+# Route to download all data as a zip file
+@app.route('/download_data')
+def download_data():
+    zip_filename = os.path.join(EXPORT_FOLDER, 'battery_data.zip')
+    save_settings()
+    save_battery_status()
+    with zipfile.ZipFile(zip_filename, 'w') as zipf:
+        # Add each file to the zip archive
+        zipf.write(LOGS_FILE)
+        zipf.write(STATUS_FILE)
+        zipf.write(SETTINGS_FILE)
 
-def load_settings():
+    return send_file(zip_filename, as_attachment=True)
+
+# Route to upload data and restore
+@app.route('/upload_data', methods=['POST'])
+def upload_data():
+    uploaded_file = request.files.get('data_file')
+    print(uploaded_file and uploaded_file.filename.endswith('.zip'))
+    if uploaded_file and uploaded_file.filename.endswith('.zip'):
+        upload_path = os.path.join(EXPORT_FOLDER, uploaded_file.filename)
+        uploaded_file.save(upload_path)
+
+        # Extract the uploaded zip file to replace the data files
+        zipfile.ZipFile(upload_path,'r').extractall(path='exports/batteryUnzipped')  # Extract files in the current directory or specify a path
+        print("UNZIPPED")
+        # Clean up by removing the uploaded zip
+        print(upload_path)
+        os.remove(upload_path)
+        load_settings('exports/batteryUnzipped/settings.json')
+        load_initial_battery_status('exports/batteryUnzipped/battery_status.json')
+        print(battery_status)
+        print('settings.json')
+        load_logs('exports/batteryUnzipped/battery_log.csv')
+        save_settings()
+        save_battery_status()
+        os.remove('exports/batteryUnzipped/settings.json')
+        os.remove('exports/batteryUnzipped/battery_status.json')
+        os.remove('exports/batteryUnzipped/battery_log.csv')
+        flash('Data uploaded and restored successfully!', 'success')
+    else:
+        flash('Invalid file format. Please upload a zip file.', 'danger')
+
+    return redirect(url_for('index'))
+def load_settings(path):
     global COOLDOWN_DURATION_TIME
     global TEAM_NUMBER
     global ADVANCED_LOGGING
     try:
-        with open(SETTINGS_FILE, 'r') as f:
+        with open(path, 'r') as f:
             settings = json.load(f)
+            print("settings contains: " , settings)
+            print("the path is: ",path)
             COOLDOWN_DURATION_TIME = settings.get('cooldown_duration_time', COOLDOWN_DURATION_TIME)
             TEAM_NUMBER = settings.get('team_number', TEAM_NUMBER)
             ADVANCED_LOGGING = settings.get('advanced_logging', ADVANCED_LOGGING)
@@ -438,6 +486,18 @@ def save_settings():
     }
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f)
+
+def load_logs(path=LOGS_FILE):
+    """Load log entries from the CSV log file and return as a list of dictionaries."""
+    logs = []
+    try:
+        with open(path, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                logs.append(row)
+    except FileNotFoundError:
+        print(f"Log file {path} not found. Returning empty list.")
+    return logs
 
 
 @app.route('/api/advanced_logging_input', methods=['POST'])
@@ -512,8 +572,7 @@ def manual_entry():
             # Determine the next status based on current status
             new_status = get_next_status(battery_code, current_status)
             if new_status:
-                if not ADVANCED_LOGGING:
-                    log_to_csv(battery_code, battery_info, new_status)
+                log_to_csv(battery_code, battery_info, new_status)
                 update_battery_status(battery_code, new_status)
                 flash(f"Battery {battery_code} status updated to {new_status}.", 'success')
             else:
@@ -844,10 +903,13 @@ def save_battery_status():
         json.dump(data_to_save, f)
 
 
-def load_initial_battery_status():
-    if os.path.exists(PERSISTENT_FILE):
-        with open(PERSISTENT_FILE, 'r') as f:
+def load_initial_battery_status(path):
+    if os.path.exists(path):
+        print("Loading Status at: ",path)
+
+        with open(path, 'r') as f:
             data_loaded = json.load(f)
+            print("It contains: ",data_loaded)
             for code, data in data_loaded.items():
                 battery_status[code] = {
                     'status': data['status'],
@@ -862,12 +924,13 @@ def load_initial_battery_status():
                 }
 
 
+
 # Start the Flask app and background tasks
 if __name__ == "__main__":
     # Load settings from file
-    load_settings()
+    load_settings(SETTINGS_FILE)
     # Load initial battery status from persistent file
-    load_initial_battery_status()
+    load_initial_battery_status(PERSISTENT_FILE)
 
     # Initialize CSV if necessary
     initialize_csv()

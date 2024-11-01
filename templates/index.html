@@ -118,7 +118,18 @@
         </div>
     </div>
 
+    <div class="container my-5">
+        <h2>Battery Data Management</h2>
+        <a href="{{ url_for('download_data') }}" class="btn btn-primary my-3">Download All Data</a>
 
+        <!-- Form to upload data -->
+        <form action="{{ url_for('upload_data') }}" method="post" enctype="multipart/form-data">
+            <div class="input-group my-3">
+                <input type="file" name="data_file" accept=".zip" class="form-control" required>
+                <button type="submit" class="btn btn-secondary">Upload Data</button>
+            </div>
+        </form>
+    </div>
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
