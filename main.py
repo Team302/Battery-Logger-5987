@@ -1,10 +1,12 @@
+import zipfile
+
 import cv2
 import time
 import csv
 import threading
 from pyzbar.pyzbar import decode
 from datetime import datetime, timedelta
-from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response, send_file
 import json
 import os
 import pygame
@@ -38,6 +40,10 @@ battery_status = {}
 pending_batteries = []
 
 SETTINGS_FILE = 'settings.json'
+
+LOGS_FILE = 'battery_log.csv'
+STATUS_FILE = 'battery_status.json'
+EXPORT_FOLDER = 'exports'  # Folder to temporarily store export files
 
 
 # Initialize the CSV file and write headers if it doesn’t exist
@@ -160,56 +166,70 @@ def can_change_status(barcode_data, new_status):
     return False
 
 
-# Barcode scanning function
 def scan_barcode():
+    global cap
     print("Starting barcode scanning...")
     scanned_barcodes = {}
     cooldown_time = 2
+    retry_count = 0
+    max_retries = 5  # Number of consecutive retries before reinitializing the camera
 
     while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to capture image")
-            break
+        try:
+            ret, frame = cap.read()
+            if not ret:
+                retry_count += 1
+                print(f"Warning: Can't grab frame (attempt {retry_count}). Retrying...")
+                time.sleep(0.1)  # Small delay before retrying
 
-        barcodes = decode(frame)
-
-        for barcode in barcodes:
-            barcode_data = barcode.data.decode('utf-8')[:-1]  # Discard last digit
-
-            # Parse the battery code
-            try:
-                battery_info = parse_battery_code(barcode_data)
-            except Exception as e:
-                print(f"Invalid barcode format: {barcode_data}")
+                # Reinitialize the camera if it fails too many times consecutively
+                if retry_count >= max_retries:
+                    cap.release()
+                    time.sleep(1)  # Small delay before reinitializing
+                    cap = cv2.VideoCapture(0)
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+                    retry_count = 0  # Reset retry counter
                 continue
 
-            with battery_status_lock:
-                if barcode_data not in battery_status:
-                    # Battery not in system, add to pending list
-                    if barcode_data not in pending_batteries:
-                        pending_batteries.append(barcode_data)
-                    continue  # Skip further processing
+            # Reset retry count if frame read is successful
+            retry_count = 0
 
-            if barcode_data not in scanned_barcodes or time.time() - scanned_barcodes[barcode_data] > cooldown_time:
-                scanned_barcodes[barcode_data] = time.time()
-                print(f"Scanned Barcode: {barcode_data}")
+            # Process barcodes if frame capture succeeded
+            barcodes = decode(frame)
+            for barcode in barcodes:
+                barcode_data = barcode.data.decode('utf-8')[:-1]  # Discard last digit
+                try:
+                    battery_info = parse_battery_code(barcode_data)
+                except Exception as e:
+                    print(f"Invalid barcode format: {barcode_data}")
+                    continue
 
                 with battery_status_lock:
-                    current_status = battery_status.get(barcode_data, {}).get('status', 'Charging')
+                    if barcode_data not in battery_status:
+                        if barcode_data not in pending_batteries:
+                            pending_batteries.append(barcode_data)
+                        continue
 
-                # Determine the next status based on current status
-                new_status = get_next_status(barcode_data, current_status)
-                if new_status:
-                    if not ADVANCED_LOGGING:
+                if barcode_data not in scanned_barcodes or time.time() - scanned_barcodes[barcode_data] > cooldown_time:
+                    scanned_barcodes[barcode_data] = time.time()
+                    print(f"Scanned Barcode: {barcode_data}")
+
+                    with battery_status_lock:
+                        current_status = battery_status.get(barcode_data, {}).get('status', 'Charging')
+
+                    new_status = get_next_status(barcode_data, current_status)
+                    if new_status:
                         log_to_csv(barcode_data, battery_info, new_status)
-                    update_battery_status(barcode_data, new_status)
-                    pygame.mixer.music.load("beep.wav")
-                    pygame.mixer.music.play()
-                else:
-                    print(f"Battery {barcode_data} cannot change status yet.")
-        time.sleep(0.1)
+                        update_battery_status(barcode_data, new_status)
+                        pygame.mixer.music.load("beep.wav")
+                        pygame.mixer.music.play()
+                    else:
+                        print(f"Battery {barcode_data} cannot change status yet.")
+        except:
+            print("ERROR HAS BEEN IN SCAN BARCODE")
     cap.release()
+
 
 
 # Background thread to auto-update cooldown statuses
@@ -317,8 +337,6 @@ def statistics():
     # Generate graphs
     graphs = []
 
-
-
     charged_data = df[df['Charged mAh'].notnull()]
     fig_charged = px.line(charged_data, x='Timestamp', y='Charged mAh', color='Battery Code',
                           title='Charged mAh Over Time')
@@ -333,7 +351,6 @@ def statistics():
 
     # Render the template with the graphs
     return render_template('statistics.html', graphs=graphs, advanced_logging=ADVANCED_LOGGING)
-
 
 
 @app.route('/battery_statistics/<battery_code>')
@@ -412,12 +429,55 @@ def battery_statistics(battery_code):
                            format_battery_code=format_battery_code)
 
 
-def load_settings():
+# Route to download all data as a zip file
+@app.route('/download_data')
+def download_data():
+    zip_filename = os.path.join(EXPORT_FOLDER, 'battery_data.zip')
+    save_settings()
+    save_battery_status()
+    with zipfile.ZipFile(zip_filename, 'w') as zipf:
+        # Add each file to the zip archive
+        zipf.write(LOGS_FILE)
+        zipf.write(STATUS_FILE)
+        zipf.write(SETTINGS_FILE)
+
+    return send_file(zip_filename, as_attachment=True)
+
+
+# Route to upload data and restore
+@app.route('/upload_data', methods=['POST'])
+def upload_data():
+    uploaded_file = request.files.get('data_file')
+    if uploaded_file and uploaded_file.filename.endswith('.zip'):
+        upload_path = os.path.join(EXPORT_FOLDER, uploaded_file.filename)
+        uploaded_file.save(upload_path)
+
+        # Extract the uploaded zip file to replace the data files
+        zipfile.ZipFile(upload_path, 'r').extractall(
+            path='exports/batteryUnzipped')  # Extract files in the current directory or specify a path
+        # Clean up by removing the uploaded zip
+        os.remove(upload_path)
+        load_settings('exports/batteryUnzipped/settings.json')
+        load_initial_battery_status('exports/batteryUnzipped/battery_status.json')
+        load_logs('exports/batteryUnzipped/battery_log.csv', 'battery_log.csv')
+        save_settings()
+        save_battery_status()
+        os.remove('exports/batteryUnzipped/settings.json')
+        os.remove('exports/batteryUnzipped/battery_status.json')
+        os.remove('exports/batteryUnzipped/battery_log.csv')
+        flash('Data uploaded and restored successfully!', 'success')
+    else:
+        flash('Invalid file format. Please upload a zip file.', 'danger')
+
+    return redirect(url_for('index'))
+
+
+def load_settings(path):
     global COOLDOWN_DURATION_TIME
     global TEAM_NUMBER
     global ADVANCED_LOGGING
     try:
-        with open(SETTINGS_FILE, 'r') as f:
+        with open(path, 'r') as f:
             settings = json.load(f)
             COOLDOWN_DURATION_TIME = settings.get('cooldown_duration_time', COOLDOWN_DURATION_TIME)
             TEAM_NUMBER = settings.get('team_number', TEAM_NUMBER)
@@ -440,9 +500,27 @@ def save_settings():
         json.dump(settings, f)
 
 
+def load_logs(input_file, output_file):
+    try:
+        with open(input_file, mode='r', newline='') as infile:
+            reader = csv.reader(infile)
+            with open(output_file, mode='w', newline='') as outfile:
+                writer = csv.writer(outfile)
+
+                # Copy each row from the input file to the output file
+                for row in reader:
+                    writer.writerow(row)
+
+        print(f"Log file '{input_file}' successfully copied to '{output_file}'")
+
+    except FileNotFoundError:
+        print(f"Error: The file '{input_file}' does not exist.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
 @app.route('/api/advanced_logging_input', methods=['POST'])
 def advanced_logging_input():
-    print("Advanced logging input received")
     data = request.json
     battery_code = data.get('battery_code')
     with battery_status_lock:
@@ -461,7 +539,6 @@ def advanced_logging_input():
 
             # Optionally, log this data to CSV
             log_to_csv(battery_code, battery_status[battery_code], battery_status[battery_code]['status'])
-            print("LOGGED AT " + str(time.time()))
             return jsonify({'success': True})
         else:
             return jsonify({'success': False, 'message': 'Battery not found.'}), 404
@@ -512,8 +589,7 @@ def manual_entry():
             # Determine the next status based on current status
             new_status = get_next_status(battery_code, current_status)
             if new_status:
-                if not ADVANCED_LOGGING:
-                    log_to_csv(battery_code, battery_info, new_status)
+                log_to_csv(battery_code, battery_info, new_status)
                 update_battery_status(battery_code, new_status)
                 flash(f"Battery {battery_code} status updated to {new_status}.", 'success')
             else:
@@ -844,9 +920,9 @@ def save_battery_status():
         json.dump(data_to_save, f)
 
 
-def load_initial_battery_status():
-    if os.path.exists(PERSISTENT_FILE):
-        with open(PERSISTENT_FILE, 'r') as f:
+def load_initial_battery_status(path):
+    if os.path.exists(path):
+        with open(path, 'r') as f:
             data_loaded = json.load(f)
             for code, data in data_loaded.items():
                 battery_status[code] = {
@@ -865,9 +941,9 @@ def load_initial_battery_status():
 # Start the Flask app and background tasks
 if __name__ == "__main__":
     # Load settings from file
-    load_settings()
+    load_settings(SETTINGS_FILE)
     # Load initial battery status from persistent file
-    load_initial_battery_status()
+    load_initial_battery_status(PERSISTENT_FILE)
 
     # Initialize CSV if necessary
     initialize_csv()
