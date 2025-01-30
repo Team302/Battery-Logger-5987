@@ -1,0 +1,9 @@
+Flask
+opencv-python-headless
+pygame
+pyzbar
+pandas
+plotly
+plotly.express
+
+#use pip install -m requirements.txt
