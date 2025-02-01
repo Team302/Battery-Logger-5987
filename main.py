@@ -149,12 +149,8 @@ def can_change_status(barcode_data, new_status):
 
             # Logic to enforce allowed transitions
             valid_transitions = {
-                "Charging": ["Cooldown To Robot"],
-                "Cooldown To Robot": ["Ready for ROBOT"],
-                "Ready for ROBOT": ["In Use"],
-                "In Use": ["Cooldown To Charge"],
-                "Cooldown To Charge": ["Ready for CHARGING"],
-                "Ready for CHARGING": ["Charging"]
+                "Charging": ["In Use"],
+                "In Use":  ["Charging"]
             }
 
             if new_status in valid_transitions.get(last_status, []):
@@ -276,12 +272,8 @@ def format_battery_code(code):
 def get_next_status(barcode_data, current_status):
     # Logic to enforce allowed transitions
     valid_transitions = {
-        "Charging": "Cooldown To Robot",
-        "Cooldown To Robot": "Ready for ROBOT",
-        "Ready for ROBOT": "In Use",
-        "In Use": "Cooldown To Charge",
-        "Cooldown To Charge": "Ready for CHARGING",
-        "Ready for CHARGING": "Charging"
+        "Charging": "In Use",
+        "In Use": "Charging"
     }
 
     next_status = valid_transitions.get(current_status)
